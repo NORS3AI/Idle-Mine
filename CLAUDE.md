@@ -13,7 +13,9 @@ runtime deps** (the only network asset is Google Fonts). Run it by opening
   create the Pages project.
 
 ## Layout
-- `public/index.html` — markup only: header, boost bar, nav, `#stations` container, modals.
+- `public/index.html` — markup only: header, boost bar, nav, `#surface` (warehouse +
+  elevator controls), `#mine` (`.shafttrack` with the `#elevCar` + `#stations`), modals.
+  The app is ~880px wide; shafts are compact single-row cards so more fit without scrolling.
 - `public/css/styles.css` — all styling. Dark "lamp-lit mine" theme driven by CSS custom
   properties in `:root` (`--gold`, `--ore`, `--panel`, `--copper`, …).
 - `public/js/game.js` — the entire game as one IIFE. All logic lives here.
@@ -53,6 +55,12 @@ throughput, both counted in ore/s, must move); a sale is worth `qty · worth`. S
 tracks both `pending` (ore quantity) and `pendingVal` (its blended worth); `pullOre()` returns
 `{qty, val}`, and `sellFromWarehouse()` / `bottleneck()` price ore through `valuePayout()`
 ($ per unit of worth = `ORE_PRICE · mSell · mIncome`). `UP_SCALE` scales all level-up costs.
+
+The **elevator has no station card** — its Haul/Upgrade/Manager controls live in the top
+`#surface` panel next to the warehouse. Instead, `#elevCar` rides the `.shafttrack`:
+`updateElevator(dt)` (called from the loop) descends it past each shaft (pulsing `.pickup`),
+then rises to dump at the warehouse (pulsing `.dump`). It's purely cosmetic — the real ore
+math is in `autoStep`. `measureMine()` caches shaft row centres (called on build + resize).
 
 Currencies: **cash** (upgrades, managers, research) and **gold bars** (earned by prestige
 — "sell the mine" — and spent in the Legacy Tree).

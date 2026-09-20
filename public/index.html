@@ -36,6 +36,9 @@
     <button id="navAch">🏆<span>Awards</span><span class="badge" id="badgeAch">!</span></button>
   </div>
 
+  <!-- Surface: warehouse (sells) + elevator (hauls) controls, always visible up top -->
+  <div id="surface"></div>
+
   <div class="buymode" id="buyMode">
     <span class="bm-label">Buy</span>
     <button class="bm on" data-mult="1">×1</button>
@@ -44,7 +47,11 @@
     <button class="bm" data-mult="max">Max</button>
   </div>
 
-  <div id="stations"></div>
+  <!-- The mine: a vertical elevator shaft on the left, shaft rows on the right -->
+  <div id="mine">
+    <div class="shafttrack" id="shaftTrack"><div id="elevCar" title="Tap to haul"><span class="car-ore"></span><span class="car-ico">🛗</span></div></div>
+    <div id="stations"></div>
+  </div>
   <div class="foot">Progress saves automatically in this browser. The mine keeps working while you're away (up to 8 hours).</div>
 </div>
 

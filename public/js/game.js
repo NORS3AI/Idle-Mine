@@ -244,7 +244,7 @@
   function chime(){ tone(660,0.09,"sine",0.06); setTimeout(()=>tone(990,0.11,"sine",0.055),70); }
 
   // ---------------- floating + toast ----------------
-  function floatText(anchor,txt,cls){ if(!anchor) return; const host=anchor.closest(".card"); if(!host) return; const el=document.createElement("div"); el.className="float "+cls; el.textContent=txt; const hr=host.getBoundingClientRect(),ar=anchor.getBoundingClientRect(); el.style.left=(ar.left-hr.left+ar.width/2-10)+"px"; el.style.top=(ar.top-hr.top-4)+"px"; host.appendChild(el); setTimeout(()=>el.remove(),900); }
+  function floatText(anchor,txt,cls){ if(!anchor) return; const host=anchor.closest(".card, .sctl"); if(!host) return; const el=document.createElement("div"); el.className="float "+cls; el.textContent=txt; const hr=host.getBoundingClientRect(),ar=anchor.getBoundingClientRect(); el.style.left=(ar.left-hr.left+ar.width/2-10)+"px"; el.style.top=(ar.top-hr.top-4)+"px"; host.appendChild(el); setTimeout(()=>el.remove(),900); }
   function toast(icon,txt){ const w=document.getElementById("toasts"); const el=document.createElement("div"); el.className="toast"; el.innerHTML="<span>"+icon+"</span><span>"+txt+"</span>"; w.appendChild(el); setTimeout(()=>{ el.style.transition="opacity .4s"; el.style.opacity="0"; setTimeout(()=>el.remove(),400); },3200); }
 
   function checkAchievements(){
@@ -253,37 +253,42 @@
     return any;
   }
 
-  // ---------------- DOM build (stations) ----------------
+  // ---------------- DOM build ----------------
+  const surfaceEl=document.getElementById("surface");
   const stationsEl=document.getElementById("stations");
   let rowEl=[], elevRow=null, whRow=null;
-  function stationCard(cls){ const c=document.createElement("div"); c.className="card "+cls; c.innerHTML='<div class="row1"><div class="sicon"></div><div class="sinfo"><div class="sname"><span class="nm"></span><span class="lv"></span><span class="depth"></span></div><div class="ssub"></div><div class="bar"><span></span></div></div></div><div class="actions"></div>'; return {root:c,icon:c.querySelector(".sicon"),nm:c.querySelector(".nm"),lv:c.querySelector(".lv"),depth:c.querySelector(".depth"),sub:c.querySelector(".ssub"),bar:c.querySelector(".bar>span"),actions:c.querySelector(".actions")}; }
+  // compact control block for the surface (warehouse / elevator)
+  function sctlBlock(){ const c=document.createElement("div"); c.className="sctl"; c.innerHTML='<div class="sctl-head"><span class="sicon"></span><span class="nm"></span><span class="lv"></span></div><div class="ssub"></div><div class="bar"><span></span></div><div class="actions"></div>'; return {root:c,icon:c.querySelector(".sicon"),nm:c.querySelector(".nm"),lv:c.querySelector(".lv"),sub:c.querySelector(".ssub"),bar:c.querySelector(".bar>span"),actions:c.querySelector(".actions")}; }
+  // compact mine row for a shaft
+  function mrowBlock(cls){ const c=document.createElement("div"); c.className="card mrow"+(cls?" "+cls:""); c.innerHTML='<div class="micon"></div><div class="minfo"><div class="mtop"><span class="nm"></span><span class="lv"></span><span class="depth"></span></div><div class="ssub"></div><div class="bar"><span></span></div><div class="milestone"></div></div><div class="mact"></div>'; return {root:c,icon:c.querySelector(".micon"),nm:c.querySelector(".nm"),lv:c.querySelector(".lv"),depth:c.querySelector(".depth"),sub:c.querySelector(".ssub"),bar:c.querySelector(".bar>span"),milestone:c.querySelector(".milestone"),actions:c.querySelector(".mact")}; }
   function mkBtn(cls,html,onclick){ const b=document.createElement("button"); b.className="btn "+cls; b.innerHTML=html; b.addEventListener("click",e=>{e.stopPropagation();ensureAudio();onclick();}); return b; }
 
   function build(){
-    stationsEl.innerHTML=""; rowEl=[];
-    whRow=stationCard("surface"); whRow.icon.textContent="🏭"; whRow.nm.textContent="Warehouse"; whRow.depth.textContent="surface";
-    whRow.upBtn=mkBtn("upgrade","",upgradeWh); whRow.mgrBtn=mkBtn("manager","",whManager);
-    whRow.actions.append(mkBtn("work","💰 Sell",tapWarehouse),whRow.upBtn,whRow.mgrBtn); stationsEl.appendChild(whRow.root);
+    surfaceEl.innerHTML=""; stationsEl.innerHTML=""; rowEl=[];
 
-    elevRow=stationCard(""); elevRow.icon.textContent="🛗"; elevRow.nm.textContent="Elevator"; elevRow.depth.textContent="hoist";
+    whRow=sctlBlock(); whRow.icon.textContent="🏭"; whRow.nm.textContent="Warehouse";
+    whRow.upBtn=mkBtn("upgrade","",upgradeWh); whRow.mgrBtn=mkBtn("manager","",whManager);
+    whRow.actions.append(mkBtn("work","💰 Sell",tapWarehouse),whRow.upBtn,whRow.mgrBtn); surfaceEl.appendChild(whRow.root);
+
+    elevRow=sctlBlock(); elevRow.icon.textContent="🛗"; elevRow.nm.textContent="Elevator";
     elevRow.upBtn=mkBtn("upgrade","",upgradeElev); elevRow.mgrBtn=mkBtn("manager","",elevManager);
-    elevRow.actions.append(mkBtn("work","▲ Haul",tapElevator),elevRow.upBtn,elevRow.mgrBtn); stationsEl.appendChild(elevRow.root);
+    elevRow.actions.append(mkBtn("work","▲ Haul",tapElevator),elevRow.upBtn,elevRow.mgrBtn); surfaceEl.appendChild(elevRow.root);
 
     for(let i=0;i<S.shafts.length;i++){
       const s=S.shafts[i];
       if(s.unlocked){
-        const r=stationCard(""); r.icon.textContent="⛏️"; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
+        const r=mrowBlock(); r.icon.textContent="⛏️"; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
         r.upBtn=mkBtn("upgrade","",()=>upgradeShaft(i)); r.mgrBtn=mkBtn("manager","",()=>shaftManager(i));
         r.actions.append(mkBtn("work","⛏️ Dig",()=>tapShaft(i)),r.upBtn,r.mgrBtn);
-        r.milestone=document.createElement("div"); r.milestone.className="milestone"; r.root.appendChild(r.milestone);
         stationsEl.appendChild(r.root); rowEl[i]=r;
       }else{
-        const r=stationCard("locked"); r.icon.textContent="🔒"; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
-        r.sub.innerHTML="A deeper, richer seam — ore worth <b>💎"+SHAFT_DEFS[i].worth+"/ore</b>."; r.bar.parentElement.style.display="none";
+        const r=mrowBlock("locked"); r.icon.textContent="🔒"; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
+        r.sub.innerHTML="A deeper, richer seam — ore worth <b>💎"+SHAFT_DEFS[i].worth+"/ore</b>."; r.bar.parentElement.style.display="none"; r.milestone.style.display="none";
         r.unlockBtn=mkBtn("unlock","",()=>unlockShaft(i)); r.actions.append(r.unlockBtn);
         stationsEl.appendChild(r.root); rowEl[i]=r; break;
       }
     }
+    measureMine();
   }
 
   // ---------------- render main ----------------
@@ -336,6 +341,37 @@
     });
     updateBadges();
   }
+
+  // ---------------- elevator animation ----------------
+  // The car rides the shaft track: descends past each shaft (picking up), returns to the top
+  // and dumps into the warehouse. Purely visual — the ore math lives in autoStep/pullOre.
+  const elevCar=document.getElementById("elevCar");
+  let carY=0, carDir=1, carLoaded=false, carBottom=0, shaftCenters=[];
+  const carPassed=new Set();
+  const CAR_H=13; // half the car height, to centre it on a row
+  function measureMine(){
+    const track=document.getElementById("shaftTrack"); if(!track) return;
+    const tr=track.getBoundingClientRect(); shaftCenters=[]; carBottom=0;
+    rowEl.forEach((r,i)=>{ if(r&&r.root&&S.shafts[i]&&S.shafts[i].unlocked){ const rr=r.root.getBoundingClientRect(); shaftCenters.push({i,y:rr.top+rr.height/2-tr.top}); } });
+    if(shaftCenters.length) carBottom=Math.max(0,shaftCenters[shaftCenters.length-1].y-CAR_H);
+  }
+  function pulseShaft(i){ const r=rowEl[i]; if(r&&r.root){ r.root.classList.add("pickup"); setTimeout(()=>{ if(r.root) r.root.classList.remove("pickup"); },450); } }
+  function pulseWarehouse(){ if(whRow&&whRow.root){ whRow.root.classList.add("dump"); setTimeout(()=>{ if(whRow.root) whRow.root.classList.remove("dump"); },500); } }
+  function setCar(){ if(!elevCar) return; elevCar.style.transform="translateY("+carY+"px)"; elevCar.style.setProperty("--cary",carY+"px"); const frac=carBottom>0?Math.min(1,carY/carBottom):0; elevCar.style.setProperty("--load",frac.toFixed(2)); }
+  function updateElevator(dt){
+    if(!elevCar) return;
+    const active=S.elevator.manager && shaftCenters.length>0 && carBottom>0;
+    if(!active){ carY=0; carDir=1; carLoaded=false; carPassed.clear(); elevCar.classList.remove("running"); setCar(); return; }
+    elevCar.classList.add("running");
+    const speed=Math.min(340, 80 + S.elevator.level*2 + milestone(S.elevator.level)*14); // px/s, grows mildly with the elevator
+    carY+=carDir*speed*dt;
+    if(carY>=carBottom){ carY=carBottom; carDir=-1; carLoaded=true; }
+    else if(carY<=0){ carY=0; if(carDir<0&&carLoaded){ pulseWarehouse(); carLoaded=false; } carDir=1; carPassed.clear(); }
+    if(carDir>0){ for(const sc of shaftCenters){ if(!carPassed.has(sc.i) && carY>=sc.y-CAR_H-3){ carPassed.add(sc.i); pulseShaft(sc.i); } } }
+    setCar();
+  }
+  if(elevCar) elevCar.addEventListener("click",()=>{ ensureAudio(); tapElevator(); });
+  window.addEventListener("resize",measureMine);
 
   // ---------------- research sheet ----------------
   const researchBody=document.getElementById("researchBody"); let researchRows=[];
@@ -404,11 +440,12 @@
 
   // ---------------- loop ----------------
   let lastT=performance.now();
-  function loop(nowt){ let dt=(nowt-lastT)/1000; lastT=nowt; if(dt>0.25) dt=0.25; autoStep(dt); if(checkAchievements()){} render(); renderBoosts(); if(openUpdateFn) openUpdateFn(); requestAnimationFrame(loop); }
+  function loop(nowt){ let dt=(nowt-lastT)/1000; lastT=nowt; if(dt>0.25) dt=0.25; autoStep(dt); if(checkAchievements()){} render(); renderBoosts(); updateElevator(dt); if(openUpdateFn) openUpdateFn(); requestAnimationFrame(loop); }
 
   // ---------------- boot ----------------
   if(!load()) S=freshState();
   refreshSoundBtn(); runOffline(); buildBoostBar(); build(); render();
+  setTimeout(measureMine,300); // re-measure once layout/fonts settle
   setInterval(save,5000);
   document.addEventListener("visibilitychange",()=>{ if(document.hidden){ save(); } else { lastT=performance.now(); runOffline(); save(); } });
   window.addEventListener("beforeunload",save);
