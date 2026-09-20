@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Deep Delve</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="toast-wrap" id="toasts"></div>
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1><span>⛏️</span> Deep Delve</h1>
+      <div class="hdr-btns">
+        <button class="icon-btn" id="soundBtn">🔊</button>
+        <button class="icon-btn" id="settingsBtn">⚙️</button>
+      </div>
+    </div>
+    <div class="money-row">
+      <div class="cash" id="cash"><span class="cur">$</span>0</div>
+      <div class="rate">income <b id="rate">0</b>/s</div>
+      <div class="gbchip" id="gbchip">🪙 <span class="gb" id="gbCount">0</span></div>
+    </div>
+  </header>
+
+  <div class="boosts" id="boostBar"></div>
+
+  <div class="nav">
+    <button id="navResearch">🔬<span>Research</span><span class="badge" id="badgeResearch">!</span></button>
+    <button id="navPrestige">🌟<span>Prestige</span><span class="badge" id="badgePrestige">!</span></button>
+    <button id="navAch">🏆<span>Awards</span><span class="badge" id="badgeAch">!</span></button>
+  </div>
+
+  <div id="stations"></div>
+  <div class="foot">Progress saves automatically in this browser. The mine keeps working while you're away (up to 8 hours).</div>
+</div>
+
+<!-- Research sheet -->
+<div class="scrim" id="researchScrim"><div class="sheet">
+  <div class="sheet-head"><div><h2>🔬 Research Lab</h2><div class="sub">permanent upgrades bought with cash</div></div><button class="closeX" data-close="researchScrim">✕</button></div>
+  <div class="sheet-body" id="researchBody"></div>
+</div></div>
+
+<!-- Prestige sheet -->
+<div class="scrim" id="prestigeScrim"><div class="sheet">
+  <div class="sheet-head"><div><h2>🌟 Legacy Tree</h2><div class="sub" id="prestigeSub">spend gold bars on forever-bonuses</div></div><button class="closeX" data-close="prestigeScrim">✕</button></div>
+  <div class="sheet-body" id="prestigeBody"></div>
+</div></div>
+
+<!-- Achievements sheet -->
+<div class="scrim" id="achScrim"><div class="sheet">
+  <div class="sheet-head"><div><h2>🏆 Awards</h2><div class="sub" id="achSub">each grants a permanent income bonus</div></div><button class="closeX" data-close="achScrim">✕</button></div>
+  <div class="sheet-body"><div class="achgrid" id="achBody"></div></div>
+</div></div>
+
+<!-- Welcome-back -->
+<div class="scrim center" id="welcomeScrim"><div class="modal">
+  <h2>⛏️ Back to the mine</h2><p id="welcomeTime"></p>
+  <div class="big" id="welcomeAmt">$0</div><p>The crew kept hauling while you were away.</p>
+  <div class="mbtns"><button class="btn primary" id="welcomeOk">Collect</button></div>
+</div></div>
+
+<!-- Settings -->
+<div class="scrim center" id="settingsScrim"><div class="modal" style="text-align:left;">
+  <h2 style="text-align:center;">⚙️ Settings</h2>
+  <div class="settings-list">
+    <div class="setting-item"><div><div class="lbl">Total earned</div><div class="sub">all-time</div></div><div style="color:var(--gold);font-weight:700;" id="setTotal">$0</div></div>
+    <div class="setting-item"><div><div class="lbl">Times sold</div><div class="sub">prestige count</div></div><div style="font-weight:700;" id="setPrestige">0</div></div>
+    <div class="setting-item"><div><div class="lbl">Sound effects</div></div><button class="btn ghost" id="setSound" style="padding:8px 14px;">On</button></div>
+    <div class="setting-item"><div><div class="lbl">Reset everything</div><div class="sub">wipes all progress</div></div><button class="btn ghost" id="setReset" style="padding:8px 14px;color:var(--danger);border-color:#5a2b23;">Reset</button></div>
+  </div>
+  <div class="mbtns"><button class="btn primary" id="setClose">Done</button></div>
+</div></div>
+
+<!-- Confirm -->
+<div class="scrim center" id="confirmScrim"><div class="modal">
+  <h2 id="confirmTitle">Are you sure?</h2><p id="confirmMsg"></p>
+  <div class="mbtns"><button class="btn ghost" id="confirmNo">Cancel</button><button class="btn primary" id="confirmYes">Confirm</button></div>
+</div></div>
+
+<script src="js/game.js"></script>
+</body>
+</html>

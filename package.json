@@ -1,0 +1,10 @@
+{
+  "name": "deep-delve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deep Delve — an idle mining clicker (Idle Miner Tycoon spinoff). Vanilla JS, no build step.",
+  "scripts": {
+    "dev": "npx --yes serve public -l 5173",
+    "deploy": "npx --yes wrangler pages deploy public --project-name deep-delve"
+  }
+}
