@@ -19,8 +19,8 @@ runtime deps** (the only network asset is Google Fonts). Run it by opening
 - `public/js/game.js` — the entire game as one IIFE. All logic lives here.
 
 ## How `game.js` is organized (top → bottom)
-1. **config constants** — `ORE_PRICE`, `TAP_SECS`, `COST_GROWTH`, `MILESTONE_EVERY`,
-   `OFFLINE_CAP`, `PRESTIGE_UNLOCK`.
+1. **config constants** — `ORE_PRICE`, `TAP_SECS`, `COST_GROWTH`, `MILESTONES` (the miner
+   milestone level thresholds), `OFFLINE_CAP`, `PRESTIGE_UNLOCK`.
 2. **data tables** — `SHAFT_DEFS` (12 shafts), `RESEARCH` (6 nodes), `PRESTIGE`
    (legacy tree), `BOOSTS`, `ACH` (15 achievements). **Balance the game by editing these.**
 3. **state** — `freshState()` returns the whole save object; `S` is the live state.
@@ -42,7 +42,9 @@ runtime deps** (the only network asset is Google Fonts). Run it by opening
 Shafts dig **ore** into per-shaft piles → the **elevator** hauls ore up into the
 **warehouse** pending stock → the warehouse **sells** ore for **cash**. Each station is
 manual (tap the Dig/Haul/Sell button) until you hire its **manager**, after which
-`autoStep` runs it. Every `MILESTONE_EVERY` (25) levels, a station's output doubles.
+`autoStep` runs it. A station gains a **miner** (its output doubles) each time it reaches a
+level in `MILESTONES` — 10, 25, 50, 100, then every 100 up to 1000 (13 miners max, ×8192).
+The `Buy ×1/×10/×100/Max` toggle (`buyMult`) levels stations and research in bulk.
 
 Currencies: **cash** (upgrades, managers, research) and **gold bars** (earned by prestige
 — "sell the mine" — and spent in the Legacy Tree).
@@ -60,8 +62,24 @@ Currencies: **cash** (upgrades, managers, research) and **gold bars** (earned by
   `<script>` inside `index.html`. A `build` script for this is a nice-to-have (see TODO).
 
 ## Ideas / TODO backlog
-- Long-term balance pass across research × prestige × milestones (pacing is untested).
-- "Buy x10 / Max" toggle on upgrade buttons.
+- ~~"Buy x10 / Max" toggle on upgrade buttons.~~ **Done** — `buyMult` toggle (stations + research).
+- ~~Per-shaft milestone rewards.~~ **Done** — miner milestones at 10/25/50/100/…/1000 (all stations).
+- ~~Early-game balance pass (pacing was untested).~~ **Done** — see below.
 - Offline-earnings upgrade (raise the 8h cap and/or the rate).
-- Per-shaft milestone rewards; prestige-only deep shafts; timed events.
+- Prestige-only deep shafts; timed events.
 - `build.mjs` that emits a single-file `dist/index.html` for the artifact build.
+- `boss` research (manual tap power) is a near-dead stat once automated — repurpose it
+  (e.g. offline rate, or a click-based boost) rather than leave it a trap node.
+
+## Balance notes (first-30-min pass)
+Tuned via an economy simulator (a bottleneck-targeting player over 30 min). Key fixes:
+- Old `shaftMgrCost = 200·5^i` exploded ($625K by shaft 6) and stranded expansion — now
+  `max(50, unlockCost·0.4)`, so a shaft you can afford to open you can afford to run.
+- Old start had shaft/elev/warehouse rates near-tied, so single-leg upgrades moved the
+  `min()` bottleneck by $0 (a dead wall). Elevator base 1.5→1.8, warehouse 1.3→1.6 so dig
+  is the clear early bottleneck and every upgrade pays off.
+- Milestones apply to the **whole chain** (shaft + elevator + warehouse) so transport keeps
+  pace instead of becoming a money pit.
+- Research (drill/winch/trade/core) made cheaper and a touch stronger so it's reachable
+  mid-run; prestige gain `floor(sqrt(run/1e6))` → `floor(3·sqrt(...))` and Head Start
+  cheaper + bigger so the first "sell the mine" is worth it.

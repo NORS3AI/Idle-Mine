@@ -2,30 +2,36 @@
 (function(){
   // ---------------- config ----------------
   const SAVE_KEY="deepDelve.save.v1";
-  const ORE_PRICE=2, TAP_SECS=1.5, COST_GROWTH=1.15, MILESTONE_EVERY=25, OFFLINE_CAP=8*3600, PRESTIGE_UNLOCK=1e6;
+  const ORE_PRICE=2, TAP_SECS=1.5, COST_GROWTH=1.15, OFFLINE_CAP=8*3600, PRESTIGE_UNLOCK=1e6;
+
+  // Milestone ("miner") schedule — every station doubles its output when a shaft/hoist reaches
+  // one of these levels: the first miners come fast (Lv.10, 25, 50, 100), then one per 100 levels
+  // up to Lv.1000. Max 13 miners = ×8192 output per station.
+  const MILESTONES=[10,25,50,100,200,300,400,500,600,700,800,900,1000];
+  const MILESTONE_MAX=MILESTONES.length; // 13
 
   const SHAFT_DEFS=[
     {unlockCost:0,      base:1.0, depth:120},
-    {unlockCost:500,    base:1.6, depth:260},
-    {unlockCost:6000,   base:2.6, depth:420},
-    {unlockCost:75000,  base:4.2, depth:600},
-    {unlockCost:9e5,    base:7,   depth:820},
-    {unlockCost:1.2e7,  base:12,  depth:1080},
-    {unlockCost:1.5e8,  base:20,  depth:1380},
-    {unlockCost:2e9,    base:34,  depth:1720},
-    {unlockCost:2.5e10, base:58,  depth:2100},
-    {unlockCost:3e11,   base:98,  depth:2520},
-    {unlockCost:4e12,   base:165, depth:2980},
-    {unlockCost:5e13,   base:280, depth:3480},
+    {unlockCost:400,    base:1.7, depth:260},
+    {unlockCost:4500,   base:2.9, depth:420},
+    {unlockCost:45000,  base:5.0, depth:600},
+    {unlockCost:5e5,    base:9,   depth:820},
+    {unlockCost:5e6,    base:16,  depth:1080},
+    {unlockCost:6e7,    base:28,  depth:1380},
+    {unlockCost:7e8,    base:50,  depth:1720},
+    {unlockCost:8e9,    base:90,  depth:2100},
+    {unlockCost:1e11,   base:160, depth:2520},
+    {unlockCost:1.2e12, base:290, depth:2980},
+    {unlockCost:1.5e13, base:520, depth:3480},
   ];
 
   const RESEARCH=[
-    {id:'drill', name:'Diamond Drill Bits', icon:'🔩', per:0.08, unit:'shaft dig speed',  base:800,   growth:1.55, max:60},
-    {id:'winch', name:'Winch Motors',       icon:'⚙️', per:0.08, unit:'haul & sell speed',base:1200,  growth:1.55, max:60},
-    {id:'trade', name:'Trade Contracts',    icon:'📜', per:0.08, unit:'ore sell price',   base:1500,  growth:1.60, max:60},
+    {id:'drill', name:'Diamond Drill Bits', icon:'🔩', per:0.08, unit:'shaft dig speed',  base:700,   growth:1.50, max:60},
+    {id:'winch', name:'Winch Motors',       icon:'⚙️', per:0.08, unit:'haul & sell speed',base:900,   growth:1.50, max:60},
+    {id:'trade', name:'Trade Contracts',    icon:'📜', per:0.08, unit:'ore sell price',   base:1100,  growth:1.52, max:60},
     {id:'cart',  name:'Reinforced Carts',   icon:'🛒', per:0.15, unit:'all storage',      base:600,   growth:1.50, max:40},
     {id:'boss',  name:'Pit Boss Training',  icon:'👷', per:0.20, unit:'manual tap power', base:500,   growth:1.50, max:30},
-    {id:'core',  name:'Deep Core Sampling', icon:'🧪', per:0.06, unit:'ALL income',       base:25000, growth:1.70, max:80},
+    {id:'core',  name:'Deep Core Sampling', icon:'🧪', per:0.07, unit:'ALL income',       base:20000, growth:1.60, max:80},
   ];
 
   const PRESTIGE=[
@@ -33,7 +39,7 @@
     {id:'legacy',    name:'Legacy Drills',     icon:'⛏️', per:0.07, unit:'shaft speed',        baseCost:1, max:50},
     {id:'logistics', name:'Master Logistics',  icon:'🚚', per:0.07, unit:'haul & sell speed',  baseCost:1, max:50},
     {id:'handshake', name:'Golden Handshake',  icon:'🤝', per:0.10, unit:'ore sell price',     baseCost:2, max:50},
-    {id:'headstart', name:'Head Start',        icon:'🎁', special:'headstart',                  baseCost:2, max:8},
+    {id:'headstart', name:'Head Start',        icon:'🎁', special:'headstart',                  baseCost:1, max:8},
     {id:'overclock', name:'Overclock Boosts',  icon:'⚡', special:'overclock',                  baseCost:3, max:6},
   ];
 
@@ -94,18 +100,49 @@
   const boostDurMult=()=>1+pLvl('overclock')*0.15;
   const boostCdRed=()=>pLvl('overclock')*12;
 
-  const milestone=lv=>Math.pow(2,Math.floor(lv/MILESTONE_EVERY));
+  // milestone "miners": how many thresholds a level has passed, and the ×2^n output multiplier
+  function milestoneCount(lv){ let n=0; for(let k=0;k<MILESTONES.length;k++){ if(lv>=MILESTONES[k]) n++; else break; } return n; }
+  const milestone=lv=>Math.pow(2,milestoneCount(lv));
+  const nextMilestone=lv=>{ for(let k=0;k<MILESTONES.length;k++){ if(lv<MILESTONES[k]) return MILESTONES[k]; } return null; };
+
+  // per-level upgrade cost factors (cost to go level L→L+1 is factor*COST_GROWTH^(L-1))
+  const shaftUpFactor=i=>8+SHAFT_DEFS[i].base*4;
+  const ELEV_UP_FACTOR=15, WH_UP_FACTOR=12;
+
   const shaftRate=i=>SHAFT_DEFS[i].base*S.shafts[i].level*milestone(S.shafts[i].level)*mShaft();
   const shaftCap=i=>(12+SHAFT_DEFS[i].base*6)*S.shafts[i].level*mCap();
-  const shaftUpCost=i=>Math.floor((8+SHAFT_DEFS[i].base*4)*Math.pow(COST_GROWTH,S.shafts[i].level-1));
-  const shaftMgrCost=i=>Math.floor(200*Math.pow(5,i));
-  const elevRate=()=>1.5*S.elevator.level*milestone(S.elevator.level)*mTransport();
-  const elevUpCost=()=>Math.floor(15*Math.pow(COST_GROWTH,S.elevator.level-1));
+  const shaftUpCost=i=>Math.floor(shaftUpFactor(i)*Math.pow(COST_GROWTH,S.shafts[i].level-1));
+  const shaftMgrCost=i=>Math.max(50,Math.floor(SHAFT_DEFS[i].unlockCost*0.4));
+  const elevRate=()=>1.8*S.elevator.level*milestone(S.elevator.level)*mTransport();
+  const elevUpCost=()=>Math.floor(ELEV_UP_FACTOR*Math.pow(COST_GROWTH,S.elevator.level-1));
   const ELEV_MGR=120;
-  const whRate=()=>1.3*S.warehouse.level*milestone(S.warehouse.level)*mTransport();
+  const whRate=()=>1.6*S.warehouse.level*milestone(S.warehouse.level)*mTransport();
   const whCap=()=>30*S.warehouse.level*mCap();
-  const whUpCost=()=>Math.floor(12*Math.pow(COST_GROWTH,S.warehouse.level-1));
+  const whUpCost=()=>Math.floor(WH_UP_FACTOR*Math.pow(COST_GROWTH,S.warehouse.level-1));
   const WH_MGR=40;
+
+  // ---- bulk-buy helpers (respect the Buy x1/x10/x100/Max toggle) ----
+  let buyMult=1; // 1 | 10 | 100 | 'max'
+  const stepCost=(factor,level)=>Math.floor(factor*Math.pow(COST_GROWTH,level-1));
+  // how many levels the current buy mode wants, and their total cost, from `level` with `cash` on hand
+  function bulkPlan(factor,level,cash,levelCap){
+    let n=0,cost=0,l=level;
+    const want=(buyMult==='max')?Infinity:buyMult;
+    while(n<want){
+      if(levelCap!=null && l>levelCap) break;
+      const c=stepCost(factor,l);
+      if(buyMult==='max' && cost+c>cash) break; // Max: as many as affordable
+      cost+=c; l++; n++;
+      if(n>1e6) break;
+    }
+    return {n,cost};
+  }
+  function affordLevels(factor,level,cash,levelCap){
+    // for fixed x10/x100: buy the whole batch only if affordable; returns {n,cost,ok}
+    const plan=bulkPlan(factor,level,cash,levelCap);
+    if(buyMult==='max') return {n:plan.n,cost:plan.cost,ok:plan.n>0};
+    return {n:plan.n,cost:plan.cost,ok:plan.n>0 && plan.cost<=cash};
+  }
 
   function countUnlocked(){ let n=0; S.shafts.forEach(s=>{ if(s.unlocked) n++; }); return n; }
   function totalPile(){ let t=0; S.shafts.forEach(s=>{ if(s.unlocked) t+=s.pile; }); return t; }
@@ -131,21 +168,29 @@
 
   // ---------------- purchases ----------------
   const buy=cost=>{ if(S.cash>=cost){ S.cash-=cost; return true; } return false; };
-  function upgradeShaft(i){ if(buy(shaftUpCost(i))){ S.shafts[i].level++; chime(); render(); } }
+  function upgradeShaft(i){
+    const s=S.shafts[i]; const plan=affordLevels(shaftUpFactor(i),s.level,S.cash); if(!plan.ok) return;
+    const before=milestoneCount(s.level); S.cash-=plan.cost; s.level+=plan.n; const after=milestoneCount(s.level);
+    if(after>before){ const g=after-before; toast("⛏️","Shaft "+(i+1)+" hired "+g+" new miner"+(g>1?"s":"")+" · ×"+milestone(s.level)+" output"); }
+    chime(); render();
+  }
   function shaftManager(i){ if(!S.shafts[i].manager&&buy(shaftMgrCost(i))){ S.shafts[i].manager=true; chime(); render(); } }
   function unlockShaft(i){ if(!S.shafts[i].unlocked&&buy(SHAFT_DEFS[i].unlockCost)){ S.shafts[i].unlocked=true; chime(); build(); render(); } }
-  function upgradeElev(){ if(buy(elevUpCost())){ S.elevator.level++; chime(); render(); } }
+  function upgradeElev(){ const plan=affordLevels(ELEV_UP_FACTOR,S.elevator.level,S.cash); if(!plan.ok) return; S.cash-=plan.cost; S.elevator.level+=plan.n; chime(); render(); }
   function elevManager(){ if(!S.elevator.manager&&buy(ELEV_MGR)){ S.elevator.manager=true; chime(); render(); } }
-  function upgradeWh(){ if(buy(whUpCost())){ S.warehouse.level++; chime(); render(); } }
+  function upgradeWh(){ const plan=affordLevels(WH_UP_FACTOR,S.warehouse.level,S.cash); if(!plan.ok) return; S.cash-=plan.cost; S.warehouse.level+=plan.n; chime(); render(); }
   function whManager(){ if(!S.warehouse.manager&&buy(WH_MGR)){ S.warehouse.manager=true; chime(); render(); } }
 
   const researchCost=r=>Math.floor(r.base*Math.pow(r.growth,rLvl(r.id)));
-  function buyResearch(id){ const r=RESEARCH.find(x=>x.id===id); if(rLvl(id)>=r.max) return; if(buy(researchCost(r))){ S.research[id]++; chime(); } }
+  function bulkPlanResearch(r,lv,cash){ let n=0,cost=0,l=lv; const want=(buyMult==='max')?Infinity:buyMult;
+    while(n<want && l<r.max){ const c=Math.floor(r.base*Math.pow(r.growth,l)); if(buyMult==='max'&&cost+c>cash) break; cost+=c; l++; n++; } return {n,cost}; }
+  function affordLevelsResearch(r,lv,cash){ const p=bulkPlanResearch(r,lv,cash); if(buyMult==='max') return {n:p.n,cost:p.cost,ok:p.n>0}; return {n:p.n,cost:p.cost,ok:p.n>0&&p.cost<=cash}; }
+  function buyResearch(id){ const r=RESEARCH.find(x=>x.id===id); const lv=rLvl(id); if(lv>=r.max) return; const plan=affordLevelsResearch(r,lv,S.cash); if(!plan.ok) return; S.cash-=plan.cost; S.research[id]+=plan.n; chime(); }
   const prestigeCost=p=>p.baseCost+pLvl(p.id);
   function buyPrestige(id){ const p=PRESTIGE.find(x=>x.id===id); if(pLvl(id)>=p.max) return; const c=prestigeCost(p); if(S.goldBars>=c){ S.goldBars-=c; S.prestigeTree[id]++; chime(); } }
 
-  const headstartCash=()=>pLvl('headstart')>0?250*Math.pow(10,pLvl('headstart')-1):0;
-  const prestigeGain=()=>Math.floor(Math.sqrt(S.totalRun/PRESTIGE_UNLOCK));
+  const headstartCash=()=>pLvl('headstart')>0?1000*Math.pow(6,pLvl('headstart')-1):0;
+  const prestigeGain=()=>Math.floor(3*Math.sqrt(S.totalRun/PRESTIGE_UNLOCK));
   function doPrestige(){
     const g=prestigeGain(); if(g<1) return;
     S.goldBars+=g; S.prestigeCount++;
@@ -230,9 +275,16 @@
 
   // ---------------- render main ----------------
   const cashEl=document.getElementById("cash"), rateEl=document.getElementById("rate"), gbCount=document.getElementById("gbCount");
-  function setUpgrade(btn,cost,label){ btn.innerHTML=label+'<small class="cost">$'+fmt(cost)+"</small>"; btn.disabled=S.cash<cost; }
+  // bulk-aware upgrade button: reflects the Buy ×1/×10/×100/Max toggle
+  function setUpgradeBulk(btn,factor,level,levelCap){
+    const plan=affordLevels(factor,level,S.cash,levelCap);
+    let label,cost;
+    if(buyMult==='max'){ label="Max"+(plan.n?(" ×"+plan.n):""); cost=plan.n?plan.cost:stepCost(factor,level); }
+    else { label=buyMult===1?"Upgrade":("Upgrade ×"+buyMult); cost=bulkPlan(factor,level,Infinity,levelCap).cost; }
+    btn.innerHTML=label+'<small class="cost">$'+fmt(cost)+"</small>"; btn.disabled=!plan.ok;
+  }
   function setManager(btn,owned,cost){ if(owned){ btn.className="btn manager owned"; btn.innerHTML='Manager<small>✓ auto</small>'; btn.disabled=true; }else{ btn.className="btn manager"; btn.innerHTML='Hire manager<small class="cost">$'+fmt(cost)+"</small>"; btn.disabled=S.cash<cost; } }
-  const milestoneText=lv=>"×"+milestone(lv)+" output · next ×2 at Lv."+((Math.floor(lv/MILESTONE_EVERY)+1)*MILESTONE_EVERY);
+  const milestoneText=lv=>{ const c=milestoneCount(lv), nx=nextMilestone(lv); return "⛏️ "+c+" miner"+(c===1?"":"s")+" · ×"+milestone(lv)+" output"+(nx?" · next at Lv."+nx:" · MAX crew"); };
 
   // boost bar
   const boostBar=document.getElementById("boostBar"); let boostEls={};
@@ -252,18 +304,20 @@
     rateEl.textContent=fmt(bottleneck());
     gbCount.textContent=fmt(S.goldBars);
 
-    whRow.lv.textContent="Lv."+S.warehouse.level;
+    const whM=milestone(S.warehouse.level);
+    whRow.lv.textContent="Lv."+S.warehouse.level+(whM>1?" ×"+whM:"");
     whRow.sub.innerHTML="Sells <b>"+fmt(whRate())+"</b> ore/s · $"+fmt(whRate()*orePayout())+"/s · stock "+fmt(S.warehouse.pending)+"/"+fmt(whCap());
     whRow.bar.style.width=Math.min(100,S.warehouse.pending/whCap()*100)+"%";
-    setUpgrade(whRow.upBtn,whUpCost(),"Upgrade"); setManager(whRow.mgrBtn,S.warehouse.manager,WH_MGR);
+    setUpgradeBulk(whRow.upBtn,WH_UP_FACTOR,S.warehouse.level); setManager(whRow.mgrBtn,S.warehouse.manager,WH_MGR);
 
-    elevRow.lv.textContent="Lv."+S.elevator.level;
+    const elM=milestone(S.elevator.level);
+    elevRow.lv.textContent="Lv."+S.elevator.level+(elM>1?" ×"+elM:"");
     elevRow.sub.innerHTML="Hauls <b>"+fmt(elevRate())+"</b> ore/s · waiting "+fmt(totalPile());
     elevRow.bar.style.width=Math.min(100,totalPileCap()?totalPile()/totalPileCap()*100:0)+"%";
-    setUpgrade(elevRow.upBtn,elevUpCost(),"Upgrade"); setManager(elevRow.mgrBtn,S.elevator.manager,ELEV_MGR);
+    setUpgradeBulk(elevRow.upBtn,ELEV_UP_FACTOR,S.elevator.level); setManager(elevRow.mgrBtn,S.elevator.manager,ELEV_MGR);
 
     S.shafts.forEach((s,i)=>{ const r=rowEl[i]; if(!r) return;
-      if(s.unlocked){ r.lv.textContent="Lv."+s.level; r.sub.innerHTML="Digs <b>"+fmt(shaftRate(i))+"</b> ore/s · pile "+fmt(s.pile)+"/"+fmt(shaftCap(i)); r.bar.style.width=Math.min(100,s.pile/shaftCap(i)*100)+"%"; setUpgrade(r.upBtn,shaftUpCost(i),"Upgrade"); setManager(r.mgrBtn,s.manager,shaftMgrCost(i)); if(r.milestone) r.milestone.textContent=milestoneText(s.level); }
+      if(s.unlocked){ r.lv.textContent="Lv."+s.level; r.sub.innerHTML="Digs <b>"+fmt(shaftRate(i))+"</b> ore/s · pile "+fmt(s.pile)+"/"+fmt(shaftCap(i)); r.bar.style.width=Math.min(100,s.pile/shaftCap(i)*100)+"%"; setUpgradeBulk(r.upBtn,shaftUpFactor(i),s.level); setManager(r.mgrBtn,s.manager,shaftMgrCost(i)); if(r.milestone) r.milestone.textContent=milestoneText(s.level); }
       else if(r.unlockBtn){ r.unlockBtn.innerHTML="🔓 Open Shaft "+(i+1)+'<small class="cost">$'+fmt(SHAFT_DEFS[i].unlockCost)+"</small>"; r.unlockBtn.disabled=S.cash<SHAFT_DEFS[i].unlockCost; }
     });
     updateBadges();
@@ -272,11 +326,11 @@
   // ---------------- research sheet ----------------
   const researchBody=document.getElementById("researchBody"); let researchRows=[];
   function buildResearch(){ researchBody.innerHTML=""; researchRows=[]; RESEARCH.forEach(r=>{ const row=document.createElement("div"); row.className="prow"; row.innerHTML='<div class="pi">'+r.icon+'</div><div class="pmid"><div class="ptop"><span>'+r.name+'</span><span class="plv"></span></div><div class="peff"></div></div>'; const btn=document.createElement("button"); btn.className="buybtn"; btn.addEventListener("click",()=>{buyResearch(r.id);updateResearch();render();}); row.appendChild(btn); researchBody.appendChild(row); researchRows.push({def:r,root:row,lv:row.querySelector(".plv"),eff:row.querySelector(".peff"),btn:btn}); }); }
-  function updateResearch(){ researchRows.forEach(o=>{ const r=o.def,lv=rLvl(r.id),maxed=lv>=r.max; o.lv.textContent="Lv."+lv; o.eff.innerHTML="<b>+"+Math.round(lv*r.per*100)+"%</b> "+r.unit+(maxed?" (max)":" · +"+Math.round(r.per*100)+"%/lv"); o.root.classList.toggle("max",maxed); if(maxed){ o.btn.className="buybtn maxed"; o.btn.innerHTML="MAX"; o.btn.disabled=true; } else { const c=researchCost(r); o.btn.className="buybtn"; o.btn.innerHTML='Upgrade<span class="c">$'+fmt(c)+"</span>"; o.btn.disabled=S.cash<c; } }); }
+  function updateResearch(){ researchRows.forEach(o=>{ const r=o.def,lv=rLvl(r.id),maxed=lv>=r.max; o.lv.textContent="Lv."+lv; o.eff.innerHTML="<b>+"+Math.round(lv*r.per*100)+"%</b> "+r.unit+(maxed?" (max)":" · +"+Math.round(r.per*100)+"%/lv"); o.root.classList.toggle("max",maxed); if(maxed){ o.btn.className="buybtn maxed"; o.btn.innerHTML="MAX"; o.btn.disabled=true; } else { const plan=affordLevelsResearch(r,lv,S.cash); let label,cost; if(buyMult==='max'){ label="Max"+(plan.n?(" ×"+plan.n):""); cost=plan.n?plan.cost:researchCost(r); } else { label=buyMult===1?"Upgrade":("Upgrade ×"+Math.min(buyMult,r.max-lv)); cost=bulkPlanResearch(r,lv,Infinity).cost; } o.btn.className="buybtn"; o.btn.innerHTML=label+'<span class="c">$'+fmt(cost)+"</span>"; o.btn.disabled=!plan.ok; } }); }
 
   // ---------------- prestige sheet ----------------
   const prestigeBody=document.getElementById("prestigeBody"); let prestigeRows=[];
-  function prestigeEffectText(p){ const lv=pLvl(p.id); if(p.special==="headstart"){ const next=250*Math.pow(10,lv); return "<b>$"+fmt(headstartCash())+"</b> starting cash"+(lv<p.max?" · next: $"+fmt(next):""); } if(p.special==="overclock"){ return "<b>+"+Math.round(lv*15)+"%</b> duration, <b>-"+(lv*12)+"s</b> cooldown"; } return "<b>+"+Math.round(lv*p.per*100)+"%</b> "+p.unit+(lv<p.max?" · +"+Math.round(p.per*100)+"%/lv":""); }
+  function prestigeEffectText(p){ const lv=pLvl(p.id); if(p.special==="headstart"){ const next=1000*Math.pow(6,lv); return "<b>$"+fmt(headstartCash())+"</b> starting cash"+(lv<p.max?" · next: $"+fmt(next):""); } if(p.special==="overclock"){ return "<b>+"+Math.round(lv*15)+"%</b> duration, <b>-"+(lv*12)+"s</b> cooldown"; } return "<b>+"+Math.round(lv*p.per*100)+"%</b> "+p.unit+(lv<p.max?" · +"+Math.round(p.per*100)+"%/lv":""); }
   function buildPrestige(){ prestigeBody.innerHTML=""; prestigeRows=[];
     const banner=document.createElement("div"); banner.className="prow"; banner.style.borderColor="var(--gold-deep)"; banner.innerHTML='<div class="pi">🪙</div><div class="pmid"><div class="ptop"><span>Sell the mine</span></div><div class="peff" id="sellHint"></div></div>'; const sb=document.createElement("button"); sb.className="buybtn gb"; sb.id="sellBtn"; sb.addEventListener("click",()=>{ const g=prestigeGain(); if(g<1) return; confirmModal("Sell the mine?","Collect <b>"+g+" gold bar"+(g===1?"":"s")+"</b>. Shaft levels, managers and cash reset — research, awards and this tree are kept.","Sell mine",()=>{doPrestige();buildPrestige();updatePrestige();}); }); banner.appendChild(sb); prestigeBody.appendChild(banner); prestigeRows.push({banner:true,hint:banner.querySelector("#sellHint"),btn:sb});
     PRESTIGE.forEach(p=>{ const row=document.createElement("div"); row.className="prow"; row.innerHTML='<div class="pi">'+p.icon+'</div><div class="pmid"><div class="ptop"><span>'+p.name+'</span><span class="plv"></span></div><div class="peff"></div></div>'; const btn=document.createElement("button"); btn.className="buybtn gb"; btn.addEventListener("click",()=>{buyPrestige(p.id);updatePrestige();render();}); row.appendChild(btn); prestigeBody.appendChild(row); prestigeRows.push({def:p,root:row,lv:row.querySelector(".plv"),eff:row.querySelector(".peff"),btn:btn}); });
@@ -293,6 +347,13 @@
   function openSheet(id,buildFn,updateFn){ if(buildFn) buildFn(); if(updateFn) updateFn(); document.getElementById(id).classList.add("show"); openSheetId=id; openUpdateFn=updateFn; }
   let openSheetId=null, openUpdateFn=null;
   function closeSheet(id){ document.getElementById(id).classList.remove("show"); if(openSheetId===id){ openSheetId=null; openUpdateFn=null; } }
+  // buy-multiplier toggle (×1 / ×10 / ×100 / Max)
+  const BUYMULT_KEY="deepDelve.buyMult";
+  const buyModeEl=document.getElementById("buyMode");
+  function setBuyMult(v){ buyMult=(v==='max')?'max':(parseInt(v,10)||1); buyModeEl.querySelectorAll(".bm").forEach(x=>x.classList.toggle("on",String(x.dataset.mult)===String(buyMult))); try{localStorage.setItem(BUYMULT_KEY,String(buyMult));}catch(e){} }
+  buyModeEl.querySelectorAll(".bm").forEach(b=>b.addEventListener("click",()=>{ ensureAudio(); setBuyMult(b.dataset.mult); render(); if(openSheetId==="researchScrim") updateResearch(); blip(430); }));
+  try{ const bm=localStorage.getItem(BUYMULT_KEY); if(bm) setBuyMult(bm); }catch(e){}
+
   document.getElementById("navResearch").addEventListener("click",()=>{ensureAudio();openSheet("researchScrim",buildResearch,updateResearch);});
   document.getElementById("navPrestige").addEventListener("click",()=>{ensureAudio();openSheet("prestigeScrim",buildPrestige,updatePrestige);});
   document.getElementById("navAch").addEventListener("click",()=>{ensureAudio();openSheet("achScrim",buildAch,updateAch);});
