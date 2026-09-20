@@ -21,7 +21,8 @@ runtime deps** (the only network asset is Google Fonts). Run it by opening
 ## How `game.js` is organized (top → bottom)
 1. **config constants** — `ORE_PRICE`, `TAP_SECS`, `COST_GROWTH`, `MILESTONES` (the miner
    milestone level thresholds), `OFFLINE_CAP`, `PRESTIGE_UNLOCK`.
-2. **data tables** — `SHAFT_DEFS` (12 shafts), `RESEARCH` (6 nodes), `PRESTIGE`
+2. **data tables** — `SHAFT_DEFS` (10 shafts, each with `unlockCost`/`base`/`worth`/`depth`),
+   `RESEARCH` (6 nodes), `PRESTIGE`
    (legacy tree), `BOOSTS`, `ACH` (15 achievements). **Balance the game by editing these.**
 3. **state** — `freshState()` returns the whole save object; `S` is the live state.
 4. **multipliers** — `mShaft / mTransport / mSell / mCap / mTap / mIncome`, `orePayout()`.
@@ -45,6 +46,13 @@ manual (tap the Dig/Haul/Sell button) until you hire its **manager**, after whic
 `autoStep` runs it. A station gains a **miner** (its output doubles) each time it reaches a
 level in `MILESTONES` — 10, 25, 50, 100, then every 100 up to 1000 (13 miners max, ×8192).
 The `Buy ×1/×10/×100/Max` toggle (`buyMult`) levels stations and research in bulk.
+
+**Ore worth.** Each shaft's ore has a value per unit (`SHAFT_DEFS[i].worth`, 1→25 for the 10
+shafts) — deeper seams are richer. `base` is dig *quantity*/level (what the elevator/warehouse
+throughput, both counted in ore/s, must move); a sale is worth `qty · worth`. So the warehouse
+tracks both `pending` (ore quantity) and `pendingVal` (its blended worth); `pullOre()` returns
+`{qty, val}`, and `sellFromWarehouse()` / `bottleneck()` price ore through `valuePayout()`
+($ per unit of worth = `ORE_PRICE · mSell · mIncome`). `UP_SCALE` scales all level-up costs.
 
 Currencies: **cash** (upgrades, managers, research) and **gold bars** (earned by prestige
 — "sell the mine" — and spent in the Legacy Tree).
@@ -83,3 +91,16 @@ Tuned via an economy simulator (a bottleneck-targeting player over 30 min). Key 
 - Research (drill/winch/trade/core) made cheaper and a touch stronger so it's reachable
   mid-run; prestige gain `floor(sqrt(run/1e6))` → `floor(3·sqrt(...))` and Head Start
   cheaper + bigger so the first "sell the mine" is worth it.
+
+## Balance notes (ore-worth pass)
+Second pass adding per-shaft ore **worth** (deeper = richer), re-tuned with the value-aware
+simulator (`scratchpad` sim, CS=10 unlock scale, `UP_SCALE`=4):
+- 12 shafts → **10**; `worth` = `[1,3,5,8,11,14,17,20,23,25]`; `base` (dig quantity) flattened
+  to `[1.0,1.2,1.5,1.9,2.4,3.0,3.8,4.8,6.0,7.5]` so `base·worth` gives a smooth value ramp
+  instead of double-counting growth.
+- Unlock costs raised ~10× (`[0,3K,35K,400K,5M,60M,700M,8B,100B,1.2T]`) and all level-up costs
+  ×4 (`UP_SCALE`) so shafts "cost more" and the arc lands ~$1M at ~16 min, ~5 shafts open by 30 min.
+- `SAVE_KEY` bumped v1→v2 (schema gained `warehouse.pendingVal`; ore economics changed) — a
+  clean reset for the brand-new game rather than a half-migrated save.
+- Watch for a double source of truth: the `m*()` multipliers hardcode each research node's
+  per-level %, while `RESEARCH[].per` drives only the label. Keep them in sync (core is 0.07 in both).

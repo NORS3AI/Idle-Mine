@@ -1,8 +1,8 @@
 "use strict";
 (function(){
   // ---------------- config ----------------
-  const SAVE_KEY="deepDelve.save.v1";
-  const ORE_PRICE=2, TAP_SECS=1.5, COST_GROWTH=1.15, OFFLINE_CAP=8*3600, PRESTIGE_UNLOCK=1e6;
+  const SAVE_KEY="deepDelve.save.v2";
+  const ORE_PRICE=2, TAP_SECS=1.5, COST_GROWTH=1.15, UP_SCALE=4, OFFLINE_CAP=8*3600, PRESTIGE_UNLOCK=1e6;
 
   // Milestone ("miner") schedule — every station doubles its output when a shaft/hoist reaches
   // one of these levels: the first miners come fast (Lv.10, 25, 50, 100), then one per 100 levels
@@ -10,19 +10,20 @@
   const MILESTONES=[10,25,50,100,200,300,400,500,600,700,800,900,1000];
   const MILESTONE_MAX=MILESTONES.length; // 13
 
+  // 10 shafts. `worth` = value per ore (deeper seams are richer): 1 → 25.
+  // `base` = ore/s dug per level (transport-side quantity). Sale value = base·worth.
+  // Manager cost is 40% of unlock cost (see shaftMgrCost).
   const SHAFT_DEFS=[
-    {unlockCost:0,      base:1.0, depth:120},
-    {unlockCost:400,    base:1.7, depth:260},
-    {unlockCost:4500,   base:2.9, depth:420},
-    {unlockCost:45000,  base:5.0, depth:600},
-    {unlockCost:5e5,    base:9,   depth:820},
-    {unlockCost:5e6,    base:16,  depth:1080},
-    {unlockCost:6e7,    base:28,  depth:1380},
-    {unlockCost:7e8,    base:50,  depth:1720},
-    {unlockCost:8e9,    base:90,  depth:2100},
-    {unlockCost:1e11,   base:160, depth:2520},
-    {unlockCost:1.2e12, base:290, depth:2980},
-    {unlockCost:1.5e13, base:520, depth:3480},
+    {unlockCost:0,      base:1.0, worth:1,  depth:120},
+    {unlockCost:3000,   base:1.2, worth:3,  depth:260},
+    {unlockCost:35000,  base:1.5, worth:5,  depth:420},
+    {unlockCost:4e5,    base:1.9, worth:8,  depth:600},
+    {unlockCost:5e6,    base:2.4, worth:11, depth:820},
+    {unlockCost:6e7,    base:3.0, worth:14, depth:1080},
+    {unlockCost:7e8,    base:3.8, worth:17, depth:1380},
+    {unlockCost:8e9,    base:4.8, worth:20, depth:1720},
+    {unlockCost:1e11,   base:6.0, worth:23, depth:2100},
+    {unlockCost:1.2e12, base:7.5, worth:25, depth:2600},
   ];
 
   const RESEARCH=[
@@ -77,7 +78,7 @@
       cash:0, totalEarned:0, totalRun:0, goldBars:0, prestigeCount:0,
       totalTaps:0, boostsUsed:0, sound:true, lastSave:Date.now(),
       shafts:SHAFT_DEFS.map((d,i)=>({unlocked:i===0,level:1,pile:0,manager:false})),
-      elevator:{level:1,manager:false}, warehouse:{level:1,pending:0,manager:false},
+      elevator:{level:1,manager:false}, warehouse:{level:1,pending:0,pendingVal:0,manager:false},
       research, prestigeTree:tree, boosts, achievements:[],
     };
   }
@@ -95,8 +96,9 @@
   const mSell=()=>(1+rLvl('trade')*0.08)*(1+pLvl('handshake')*0.10)*(grActive()?5:1);
   const mCap=()=>1+rLvl('cart')*0.15;
   const mTap=()=>1+rLvl('boss')*0.20;
-  const mIncome=()=>(1+rLvl('core')*0.06)*(1+pLvl('compound')*0.05)*achMult();
-  const orePayout=()=>ORE_PRICE*mSell()*mIncome();
+  const mIncome=()=>(1+rLvl('core')*0.07)*(1+pLvl('compound')*0.05)*achMult();
+  // $ paid per unit of ore *worth* (ore from shaft i carries SHAFT_DEFS[i].worth per unit).
+  const valuePayout=()=>ORE_PRICE*mSell()*mIncome();
   const boostDurMult=()=>1+pLvl('overclock')*0.15;
   const boostCdRed=()=>pLvl('overclock')*12;
 
@@ -106,10 +108,12 @@
   const nextMilestone=lv=>{ for(let k=0;k<MILESTONES.length;k++){ if(lv<MILESTONES[k]) return MILESTONES[k]; } return null; };
 
   // per-level upgrade cost factors (cost to go level L→L+1 is factor*COST_GROWTH^(L-1))
-  const shaftUpFactor=i=>8+SHAFT_DEFS[i].base*4;
-  const ELEV_UP_FACTOR=15, WH_UP_FACTOR=12;
+  const shaftUpFactor=i=>(8+SHAFT_DEFS[i].base*4)*UP_SCALE;
+  const ELEV_UP_FACTOR=15*UP_SCALE, WH_UP_FACTOR=12*UP_SCALE;
 
-  const shaftRate=i=>SHAFT_DEFS[i].base*S.shafts[i].level*milestone(S.shafts[i].level)*mShaft();
+  const shaftWorth=i=>SHAFT_DEFS[i].worth;
+  const shaftRate=i=>SHAFT_DEFS[i].base*S.shafts[i].level*milestone(S.shafts[i].level)*mShaft(); // ore/s
+  const shaftValRate=i=>shaftRate(i)*shaftWorth(i); // worth/s this shaft can produce
   const shaftCap=i=>(12+SHAFT_DEFS[i].base*6)*S.shafts[i].level*mCap();
   const shaftUpCost=i=>Math.floor(shaftUpFactor(i)*Math.pow(COST_GROWTH,S.shafts[i].level-1));
   const shaftMgrCost=i=>Math.max(50,Math.floor(SHAFT_DEFS[i].unlockCost*0.4));
@@ -148,23 +152,32 @@
   function totalPile(){ let t=0; S.shafts.forEach(s=>{ if(s.unlocked) t+=s.pile; }); return t; }
   function totalPileCap(){ let t=0; S.shafts.forEach((s,i)=>{ if(s.unlocked) t+=shaftCap(i); }); return t; }
   function bottleneck(){
-    let dig=0,any=false; S.shafts.forEach((s,i)=>{ if(s.unlocked&&s.manager){ dig+=shaftRate(i); any=true; } });
+    let dig=0,digVal=0,any=false; S.shafts.forEach((s,i)=>{ if(s.unlocked&&s.manager){ const r=shaftRate(i); dig+=r; digVal+=r*shaftWorth(i); any=true; } });
     if(!any||!S.elevator.manager||!S.warehouse.manager) return 0;
-    return Math.min(dig,elevRate(),whRate())*orePayout();
+    const flow=Math.min(dig,elevRate(),whRate());        // ore/s that actually moves through the chain
+    const avgWorth=dig>0?digVal/dig:0;                    // dig-weighted average ore worth
+    return flow*avgWorth*valuePayout();                  // $/s
   }
-  function pullOre(amount){ let need=amount,got=0; for(let i=0;i<S.shafts.length;i++){ const s=S.shafts[i]; if(!s.unlocked||s.pile<=0) continue; const take=Math.min(s.pile,need); s.pile-=take; got+=take; need-=take; if(need<=1e-9) break; } return got; }
+  // pull ore up the chain, lowest shaft first; returns {qty, val} where val = sum(take_i * worth_i)
+  function pullOre(amount){ let need=amount,got=0,val=0; for(let i=0;i<S.shafts.length;i++){ const s=S.shafts[i]; if(!s.unlocked||s.pile<=0) continue; const take=Math.min(s.pile,need); s.pile-=take; got+=take; val+=take*shaftWorth(i); need-=take; if(need<=1e-9) break; } return {qty:got,val:val}; }
   function addCash(v){ S.cash+=v; S.totalEarned+=v; S.totalRun+=v; }
 
+  // sell `qty` ore from the warehouse pool at its blended worth; returns cash earned
+  function sellFromWarehouse(qty){
+    const wh=S.warehouse; if(qty<=0||wh.pending<=0) return 0;
+    const sold=Math.min(qty,wh.pending); const frac=sold/wh.pending; const soldVal=wh.pendingVal*frac;
+    wh.pending-=sold; wh.pendingVal-=soldVal; const c=soldVal*valuePayout(); addCash(c); return c;
+  }
   function autoStep(dt){
     S.shafts.forEach((s,i)=>{ if(s.unlocked&&s.manager) s.pile=Math.min(shaftCap(i),s.pile+shaftRate(i)*dt); });
-    if(S.elevator.manager){ const space=whCap()-S.warehouse.pending; const mv=Math.min(elevRate()*dt,space); if(mv>0) S.warehouse.pending+=pullOre(mv); }
-    if(S.warehouse.manager){ const sold=Math.min(whRate()*dt,S.warehouse.pending); if(sold>0){ S.warehouse.pending-=sold; addCash(sold*orePayout()); } }
+    if(S.elevator.manager){ const space=whCap()-S.warehouse.pending; const mv=Math.min(elevRate()*dt,space); if(mv>0){ const p=pullOre(mv); S.warehouse.pending+=p.qty; S.warehouse.pendingVal+=p.val; } }
+    if(S.warehouse.manager){ sellFromWarehouse(whRate()*dt); }
   }
 
   // ---------------- taps ----------------
   function tapShaft(i){ const s=S.shafts[i]; if(!s.unlocked) return; const b=s.pile; s.pile=Math.min(shaftCap(i),s.pile+shaftRate(i)*TAP_SECS*mTap()); const g=s.pile-b; if(g>0){ S.totalTaps++; floatText(rowEl[i].icon,"+"+fmt(g),"ore"); blip(360); } }
-  function tapElevator(){ const space=whCap()-S.warehouse.pending; const p=pullOre(Math.min(elevRate()*TAP_SECS*mTap(),space)); if(p>0){ S.warehouse.pending+=p; S.totalTaps++; floatText(elevRow.icon,"+"+fmt(p),"ore"); blip(300); } }
-  function tapWarehouse(){ const sold=Math.min(whRate()*TAP_SECS*mTap(),S.warehouse.pending); if(sold>0){ S.warehouse.pending-=sold; const c=sold*orePayout(); addCash(c); S.totalTaps++; floatText(whRow.icon,"+$"+fmt(c),"cash"); blip(520); } }
+  function tapElevator(){ const space=whCap()-S.warehouse.pending; const p=pullOre(Math.min(elevRate()*TAP_SECS*mTap(),space)); if(p.qty>0){ S.warehouse.pending+=p.qty; S.warehouse.pendingVal+=p.val; S.totalTaps++; floatText(elevRow.icon,"+"+fmt(p.qty),"ore"); blip(300); } }
+  function tapWarehouse(){ const c=sellFromWarehouse(whRate()*TAP_SECS*mTap()); if(c>0){ S.totalTaps++; floatText(whRow.icon,"+$"+fmt(c),"cash"); blip(520); } }
 
   // ---------------- purchases ----------------
   const buy=cost=>{ if(S.cash>=cost){ S.cash-=cost; return true; } return false; };
@@ -266,7 +279,7 @@
         stationsEl.appendChild(r.root); rowEl[i]=r;
       }else{
         const r=stationCard("locked"); r.icon.textContent="🔒"; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
-        r.sub.textContent="A deeper, richer seam awaits."; r.bar.parentElement.style.display="none";
+        r.sub.innerHTML="A deeper, richer seam — ore worth <b>💎"+SHAFT_DEFS[i].worth+"/ore</b>."; r.bar.parentElement.style.display="none";
         r.unlockBtn=mkBtn("unlock","",()=>unlockShaft(i)); r.actions.append(r.unlockBtn);
         stationsEl.appendChild(r.root); rowEl[i]=r; break;
       }
@@ -305,8 +318,9 @@
     gbCount.textContent=fmt(S.goldBars);
 
     const whM=milestone(S.warehouse.level);
+    const avgW=S.warehouse.pending>0?S.warehouse.pendingVal/S.warehouse.pending:1;
     whRow.lv.textContent="Lv."+S.warehouse.level+(whM>1?" ×"+whM:"");
-    whRow.sub.innerHTML="Sells <b>"+fmt(whRate())+"</b> ore/s · $"+fmt(whRate()*orePayout())+"/s · stock "+fmt(S.warehouse.pending)+"/"+fmt(whCap());
+    whRow.sub.innerHTML="Sells <b>"+fmt(whRate())+"</b> ore/s · $"+fmt(whRate()*avgW*valuePayout())+"/s · stock "+fmt(S.warehouse.pending)+"/"+fmt(whCap());
     whRow.bar.style.width=Math.min(100,S.warehouse.pending/whCap()*100)+"%";
     setUpgradeBulk(whRow.upBtn,WH_UP_FACTOR,S.warehouse.level); setManager(whRow.mgrBtn,S.warehouse.manager,WH_MGR);
 
@@ -317,7 +331,7 @@
     setUpgradeBulk(elevRow.upBtn,ELEV_UP_FACTOR,S.elevator.level); setManager(elevRow.mgrBtn,S.elevator.manager,ELEV_MGR);
 
     S.shafts.forEach((s,i)=>{ const r=rowEl[i]; if(!r) return;
-      if(s.unlocked){ r.lv.textContent="Lv."+s.level; r.sub.innerHTML="Digs <b>"+fmt(shaftRate(i))+"</b> ore/s · pile "+fmt(s.pile)+"/"+fmt(shaftCap(i)); r.bar.style.width=Math.min(100,s.pile/shaftCap(i)*100)+"%"; setUpgradeBulk(r.upBtn,shaftUpFactor(i),s.level); setManager(r.mgrBtn,s.manager,shaftMgrCost(i)); if(r.milestone) r.milestone.textContent=milestoneText(s.level); }
+      if(s.unlocked){ r.lv.textContent="Lv."+s.level; r.sub.innerHTML="Digs <b>"+fmt(shaftRate(i))+"</b> ore/s · $"+fmt(shaftValRate(i)*valuePayout())+"/s · 💎"+shaftWorth(i)+"/ore"; r.bar.style.width=Math.min(100,s.pile/shaftCap(i)*100)+"%"; setUpgradeBulk(r.upBtn,shaftUpFactor(i),s.level); setManager(r.mgrBtn,s.manager,shaftMgrCost(i)); if(r.milestone) r.milestone.textContent=milestoneText(s.level); }
       else if(r.unlockBtn){ r.unlockBtn.innerHTML="🔓 Open Shaft "+(i+1)+'<small class="cost">$'+fmt(SHAFT_DEFS[i].unlockCost)+"</small>"; r.unlockBtn.disabled=S.cash<SHAFT_DEFS[i].unlockCost; }
     });
     updateBadges();
@@ -382,6 +396,8 @@
       const r={}; RESEARCH.forEach(x=>r[x.id]=(d.research&&d.research[x.id])||0); S.research=r;
       const t={}; PRESTIGE.forEach(x=>t[x.id]=(d.prestigeTree&&d.prestigeTree[x.id])||0); S.prestigeTree=t;
       const bo={}; BOOSTS.forEach(x=>bo[x.id]=Object.assign({until:0,cdUntil:0},(d.boosts&&d.boosts[x.id])||{})); S.boosts=bo;
+      S.warehouse=Object.assign({level:1,pending:0,pendingVal:0,manager:false},d.warehouse||{});
+      if(typeof S.warehouse.pendingVal!=="number") S.warehouse.pendingVal=S.warehouse.pending||0;
       if(!Array.isArray(S.achievements)) S.achievements=[];
       return true; }catch(e){ return false; } }
   function runOffline(){ const elapsed=Math.min(OFFLINE_CAP,(Date.now()-S.lastSave)/1000); if(elapsed<8) return; const before=S.totalEarned; let t=elapsed; while(t>0){ autoStep(Math.min(0.5,t)); t-=0.5; } const earned=S.totalEarned-before; if(earned>0.5){ document.getElementById("welcomeAmt").textContent="$"+fmt(earned); document.getElementById("welcomeTime").textContent="Away for "+humanTime(elapsed)+(elapsed>=OFFLINE_CAP?" (capped at 8h)":""); document.getElementById("welcomeScrim").classList.add("show"); } }

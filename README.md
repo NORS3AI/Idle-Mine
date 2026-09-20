@@ -39,8 +39,10 @@ npm run deploy
 Runs `wrangler pages deploy public --project-name deep-delve`.
 
 ## Gameplay
-Shafts dig **ore** → the **elevator** hauls it to the **warehouse** → the warehouse **sells** it
-for **cash**. Each station is manual until you hire its **manager**, after which it runs itself.
+Ten **shafts** dig **ore** → the **elevator** hauls it to the **warehouse** → the warehouse
+**sells** it for **cash**. Each station is manual until you hire its **manager**, after which it
+runs itself. Deeper shafts dig **richer ore**: the ore's worth climbs from 💎1/ore at Shaft 1 to
+💎25/ore at Shaft 10, so opening (increasingly pricey) deeper shafts is the main way to grow.
 Every station gains a new **miner** (×2 output) at milestone levels 10, 25, 50, 100, then every 100
 up to 1000. Spend cash on **research**, and "sell the mine" to **prestige** for gold bars and a
 permanent legacy tree. Use the **Buy ×1 / ×10 / ×100 / Max** toggle to level up in bulk.
