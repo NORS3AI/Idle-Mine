@@ -6,8 +6,10 @@
     --text:#f3e9db; --muted:#a08a72; --good:#7bc86c; --danger:#d9614a;
     --font:'Rubik',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  /* disable iOS double-tap-to-zoom (still allows scroll); user-scalable=no alone doesn't stop it */
+  /* touch-action:manipulation on EVERY element kills iOS double-tap-to-zoom (still allows
+     scroll & rapid tapping); it must sit on the tapped element itself — an ancestor rule
+     (html/body) isn't enough on WebKit. user-scalable=no alone doesn't stop double-tap zoom. */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
   html,body{margin:0;padding:0;touch-action:manipulation;}
   body{
     font-family:var(--font); color:var(--text); background:var(--bg);
