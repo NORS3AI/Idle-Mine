@@ -132,8 +132,10 @@
   /* unlocked shaft "scene": ore pile on the right, a miner swinging at it on the left */
   .mrow .micon.scene{width:78px;flex:0 0 78px;height:56px;background:none;border:none;border-radius:0;position:relative;overflow:visible;}
   .mrow .micon.scene .ore{position:absolute;right:0;bottom:0;width:50px;height:42px;background-position:center bottom;background-size:contain;background-repeat:no-repeat;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));}
-  .mrow .micon.scene .miner{position:absolute;left:-4px;bottom:-2px;width:54px;height:52px;background:url("../assets/miner.png") left center/300% 100% no-repeat;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));animation:dig .72s steps(3) infinite;}
-  @keyframes dig{to{background-position-x:-300%;}}
+  .mrow .micon.scene .miner{position:absolute;left:-4px;bottom:-2px;width:54px;height:52px;
+    background-image:url("../assets/miner.png");background-repeat:no-repeat;background-size:162px 52px;background-position:0 0;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));animation:dig .75s steps(3) infinite;}
+  @keyframes dig{to{background-position:-162px 0;}}
   .mrow.pickup .micon.scene .ore{animation:orePulse .45s ease-out;}
   @keyframes orePulse{0%{transform:scale(1);}35%{transform:scale(1.18);}100%{transform:scale(1);}}
   .mrow .minfo{flex:1 1 220px;min-width:0;}
