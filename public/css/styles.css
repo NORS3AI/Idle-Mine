@@ -240,4 +240,7 @@
   .setting-item{display:flex;justify-content:space-between;align-items:center;padding:11px 2px;border-bottom:1px solid var(--line);}
   .setting-item:last-child{border-bottom:none;}
   .setting-item .lbl{font-size:14px;font-weight:600;} .setting-item .sub{font-size:11px;color:var(--muted);font-weight:400;margin-top:1px;}
+  .dev-panel{margin-top:12px;border:1px dashed var(--line2);border-radius:12px;padding:4px 10px 6px;background:#1a140d;}
+  .dev-panel .dev-head{font-size:12px;font-weight:800;color:var(--copper);letter-spacing:.4px;margin:6px 2px 2px;}
+  #setDevBoosts.on{color:var(--good);border-color:#33512c;background:#1c2817;}
   .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:14px;line-height:1.5;}

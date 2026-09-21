@@ -76,7 +76,7 @@
     BOOSTS.forEach(b=>boosts[b.id]={until:0,cdUntil:0});
     return {
       cash:0, totalEarned:0, totalRun:0, goldBars:0, prestigeCount:0,
-      totalTaps:0, boostsUsed:0, sound:true, lastSave:Date.now(),
+      totalTaps:0, boostsUsed:0, sound:true, devInfiniteBoosts:false, lastSave:Date.now(),
       shafts:SHAFT_DEFS.map((d,i)=>({unlocked:i===0,level:1,pile:0,manager:false})),
       elevator:{level:1,manager:false}, warehouse:{level:1,pending:0,pendingVal:0,manager:false},
       research, prestigeTree:tree, boosts, achievements:[],
@@ -87,8 +87,8 @@
   const rLvl=id=>S.research[id]||0;
   const pLvl=id=>S.prestigeTree[id]||0;
   const now=()=>Date.now();
-  const rallyActive=()=>now()<S.boosts.rally.until;
-  const grActive=()=>now()<S.boosts.goldrush.until;
+  const rallyActive=()=>S.devInfiniteBoosts||now()<S.boosts.rally.until;
+  const grActive=()=>S.devInfiniteBoosts||now()<S.boosts.goldrush.until;
   function achMult(){ let m=1; ACH.forEach(a=>{ if(S.achievements.indexOf(a.id)>=0) m+=a.reward; }); return m; }
 
   const mShaft=()=>(1+rLvl('drill')*0.08)*(1+pLvl('legacy')*0.07)*(rallyActive()?3:1);
@@ -310,7 +310,7 @@
   // boost bar
   const boostBar=document.getElementById("boostBar"); let boostEls={};
   function buildBoostBar(){ boostBar.innerHTML=""; boostEls={}; BOOSTS.forEach(def=>{ const el=document.createElement("div"); el.className="boost"; el.innerHTML='<div class="fill"></div><div class="bname">'+def.icon+" "+def.name+'</div><div class="bstat"></div>'; el.addEventListener("click",()=>{ensureAudio();activateBoost(def.id);}); boostBar.appendChild(el); boostEls[def.id]={root:el,fill:el.querySelector(".fill"),stat:el.querySelector(".bstat")}; }); }
-  function renderBoosts(){ const t=now(); BOOSTS.forEach(def=>{ const b=S.boosts[def.id], e=boostEls[def.id]; e.root.className="boost"; if(t<b.until){ e.root.classList.add("active"); const rem=(b.until-t)/1000; e.stat.textContent="×"+def.mult+" · "+Math.ceil(rem)+"s left"; e.fill.style.width=(rem/(def.dur*boostDurMult())*100)+"%"; }else if(t<b.cdUntil){ e.root.classList.add("cool"); const rem=(b.cdUntil-t)/1000; e.stat.textContent="ready in "+Math.ceil(rem)+"s"; const total=Math.max(1,(def.cd-boostCdRed())); e.fill.style.width=(100-rem/total*100)+"%"; }else{ e.root.classList.add("ready"); e.stat.textContent="Ready · ×"+def.mult+" for "+Math.round(def.dur*boostDurMult())+"s"; e.fill.style.width="100%"; } }); }
+  function renderBoosts(){ const t=now(); BOOSTS.forEach(def=>{ const b=S.boosts[def.id], e=boostEls[def.id]; e.root.className="boost"; if(S.devInfiniteBoosts){ e.root.classList.add("active"); e.stat.textContent="×"+def.mult+" · ∞ (dev)"; e.fill.style.width="100%"; return; } if(t<b.until){ e.root.classList.add("active"); const rem=(b.until-t)/1000; e.stat.textContent="×"+def.mult+" · "+Math.ceil(rem)+"s left"; e.fill.style.width=(rem/(def.dur*boostDurMult())*100)+"%"; }else if(t<b.cdUntil){ e.root.classList.add("cool"); const rem=(b.cdUntil-t)/1000; e.stat.textContent="ready in "+Math.ceil(rem)+"s"; const total=Math.max(1,(def.cd-boostCdRed())); e.fill.style.width=(100-rem/total*100)+"%"; }else{ e.root.classList.add("ready"); e.stat.textContent="Ready · ×"+def.mult+" for "+Math.round(def.dur*boostDurMult())+"s"; e.fill.style.width="100%"; } }); }
 
   function updateBadges(){
     const rAff=RESEARCH.some(r=>rLvl(r.id)<r.max&&S.cash>=researchCost(r));
@@ -433,7 +433,9 @@
   function refreshSoundBtn(){ document.getElementById("soundBtn").textContent=S.sound?"🔊":"🔇"; document.getElementById("setSound").textContent=S.sound?"On":"Off"; }
   document.getElementById("soundBtn").addEventListener("click",()=>{ensureAudio();S.sound=!S.sound;refreshSoundBtn();if(S.sound)chime();save();});
   document.getElementById("setSound").addEventListener("click",()=>{S.sound=!S.sound;refreshSoundBtn();save();});
-  document.getElementById("settingsBtn").addEventListener("click",()=>{ document.getElementById("setTotal").textContent="$"+fmt(S.totalEarned); document.getElementById("setPrestige").textContent=S.prestigeCount; document.getElementById("settingsScrim").classList.add("show"); });
+  function refreshDevBtn(){ const btn=document.getElementById("setDevBoosts"); if(!btn) return; btn.textContent=S.devInfiniteBoosts?"On":"Off"; btn.classList.toggle("on",!!S.devInfiniteBoosts); }
+  document.getElementById("settingsBtn").addEventListener("click",()=>{ document.getElementById("setTotal").textContent="$"+fmt(S.totalEarned); document.getElementById("setPrestige").textContent=S.prestigeCount; refreshDevBtn(); document.getElementById("settingsScrim").classList.add("show"); });
+  document.getElementById("setDevBoosts").addEventListener("click",()=>{ S.devInfiniteBoosts=!S.devInfiniteBoosts; refreshDevBtn(); renderBoosts(); render(); save(); if(S.devInfiniteBoosts) chime(); });
   document.getElementById("setClose").addEventListener("click",()=>document.getElementById("settingsScrim").classList.remove("show"));
   document.getElementById("welcomeOk").addEventListener("click",()=>document.getElementById("welcomeScrim").classList.remove("show"));
   document.getElementById("setReset").addEventListener("click",()=>{ confirmModal("Reset everything?","This permanently wipes all progress, including gold bars, research and awards.","Reset",()=>{ try{localStorage.removeItem(SAVE_KEY);}catch(e){} S=freshState(); build(); render(); refreshSoundBtn(); document.getElementById("settingsScrim").classList.remove("show"); }); });
