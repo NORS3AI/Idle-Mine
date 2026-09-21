@@ -267,19 +267,19 @@
     surfaceEl.innerHTML=""; stationsEl.innerHTML=""; rowEl=[];
 
     whRow=sctlBlock(); whRow.icon.textContent="🏭"; whRow.nm.textContent="Warehouse";
-    whRow.upBtn=mkBtn("upgrade","",upgradeWh); whRow.mgrBtn=mkBtn("manager","",whManager);
-    whRow.actions.append(mkBtn("work","💰 Sell",tapWarehouse),whRow.upBtn,whRow.mgrBtn); surfaceEl.appendChild(whRow.root);
+    whRow.upBtn=mkBtn("act act-upgrade",'<small class="cap"></small>',upgradeWh); whRow.mgrBtn=mkBtn("act act-manager",'<small class="cap"></small>',whManager);
+    whRow.actions.append(mkBtn("act act-sell","",tapWarehouse),whRow.upBtn,whRow.mgrBtn); surfaceEl.appendChild(whRow.root);
 
     elevRow=sctlBlock(); elevRow.icon.textContent="🛗"; elevRow.nm.textContent="Elevator";
-    elevRow.upBtn=mkBtn("upgrade","",upgradeElev); elevRow.mgrBtn=mkBtn("manager","",elevManager);
-    elevRow.actions.append(mkBtn("work","▲ Haul",tapElevator),elevRow.upBtn,elevRow.mgrBtn); surfaceEl.appendChild(elevRow.root);
+    elevRow.upBtn=mkBtn("act act-upgrade",'<small class="cap"></small>',upgradeElev); elevRow.mgrBtn=mkBtn("act act-manager",'<small class="cap"></small>',elevManager);
+    elevRow.actions.append(mkBtn("act act-haul","",tapElevator),elevRow.upBtn,elevRow.mgrBtn); surfaceEl.appendChild(elevRow.root);
 
     for(let i=0;i<S.shafts.length;i++){
       const s=S.shafts[i];
       if(s.unlocked){
-        const r=mrowBlock(); r.icon.textContent="⛏️"; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
-        r.upBtn=mkBtn("upgrade","",()=>upgradeShaft(i)); r.mgrBtn=mkBtn("manager","",()=>shaftManager(i));
-        r.actions.append(mkBtn("work","⛏️ Dig",()=>tapShaft(i)),r.upBtn,r.mgrBtn);
+        const r=mrowBlock(); r.icon.classList.add("scene"); r.icon.innerHTML='<span class="ore" style="background-image:url(assets/ore/'+(i+1)+'.png)"></span><span class="miner"></span>'; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
+        r.upBtn=mkBtn("act act-upgrade",'<small class="cap"></small>',()=>upgradeShaft(i)); r.mgrBtn=mkBtn("act act-manager",'<small class="cap"></small>',()=>shaftManager(i));
+        r.actions.append(mkBtn("act act-dig","",()=>tapShaft(i)),r.upBtn,r.mgrBtn);
         stationsEl.appendChild(r.root); rowEl[i]=r;
       }else{
         const r=mrowBlock("locked"); r.icon.textContent="🔒"; r.nm.textContent="Shaft "+(i+1); r.depth.textContent="-"+SHAFT_DEFS[i].depth+"m";
@@ -293,15 +293,18 @@
 
   // ---------------- render main ----------------
   const cashEl=document.getElementById("cash"), rateEl=document.getElementById("rate"), gbCount=document.getElementById("gbCount");
-  // bulk-aware upgrade button: reflects the Buy ×1/×10/×100/Max toggle
+  // bulk-aware upgrade button: image face + a cost caption reflecting the Buy ×1/×10/×100/Max toggle
   function setUpgradeBulk(btn,factor,level,levelCap){
     const plan=affordLevels(factor,level,S.cash,levelCap);
-    let label,cost;
-    if(buyMult==='max'){ label="Max"+(plan.n?(" ×"+plan.n):""); cost=plan.n?plan.cost:stepCost(factor,level); }
-    else { label=buyMult===1?"Upgrade":("Upgrade ×"+buyMult); cost=bulkPlan(factor,level,Infinity,levelCap).cost; }
-    btn.innerHTML=label+'<small class="cost">$'+fmt(cost)+"</small>"; btn.disabled=!plan.ok;
+    let mult,cost;
+    if(buyMult==='max'){ mult=plan.n?("×"+plan.n+" "):""; cost=plan.n?plan.cost:stepCost(factor,level); }
+    else { mult=buyMult>1?("×"+buyMult+" "):""; cost=bulkPlan(factor,level,Infinity,levelCap).cost; }
+    const cap=btn.querySelector(".cap"); if(cap) cap.textContent=mult+"$"+fmt(cost);
+    btn.disabled=!plan.ok;
   }
-  function setManager(btn,owned,cost){ if(owned){ btn.className="btn manager owned"; btn.innerHTML='Manager<small>✓ auto</small>'; btn.disabled=true; }else{ btn.className="btn manager"; btn.innerHTML='Hire manager<small class="cost">$'+fmt(cost)+"</small>"; btn.disabled=S.cash<cost; } }
+  function setManager(btn,owned,cost){ const cap=btn.querySelector(".cap");
+    if(owned){ btn.classList.add("owned"); if(cap) cap.textContent="✓ auto"; btn.disabled=true; }
+    else { btn.classList.remove("owned"); if(cap) cap.textContent="$"+fmt(cost); btn.disabled=S.cash<cost; } }
   const milestoneText=lv=>{ const c=milestoneCount(lv), nx=nextMilestone(lv); return "⛏️ "+c+" miner"+(c===1?"":"s")+" · ×"+milestone(lv)+" output"+(nx?" · next at Lv."+nx:" · MAX crew"); };
 
   // boost bar
@@ -346,9 +349,9 @@
   // The car rides the shaft track: descends past each shaft (picking up), returns to the top
   // and dumps into the warehouse. Purely visual — the ore math lives in autoStep/pullOre.
   const elevCar=document.getElementById("elevCar");
-  let carY=0, carDir=1, carLoaded=false, carBottom=0, shaftCenters=[];
-  const carPassed=new Set();
-  const CAR_H=13; // half the car height, to centre it on a row
+  const CAR_H=43; // half the car sprite height, to centre it on a shaft row
+  let carY=0, shaftCenters=[], carBottom=0;
+  let elevState="descend", elevIdx=0, haulT=0, emptyT=0, carLoad=0, carSprite="";
   function measureMine(){
     const track=document.getElementById("shaftTrack"); if(!track) return;
     const tr=track.getBoundingClientRect(); shaftCenters=[]; carBottom=0;
@@ -357,18 +360,28 @@
   }
   function pulseShaft(i){ const r=rowEl[i]; if(r&&r.root){ r.root.classList.add("pickup"); setTimeout(()=>{ if(r.root) r.root.classList.remove("pickup"); },450); } }
   function pulseWarehouse(){ if(whRow&&whRow.root){ whRow.root.classList.add("dump"); setTimeout(()=>{ if(whRow.root) whRow.root.classList.remove("dump"); },500); } }
-  function setCar(){ if(!elevCar) return; elevCar.style.transform="translateY("+carY+"px)"; elevCar.style.setProperty("--cary",carY+"px"); const frac=carBottom>0?Math.min(1,carY/carBottom):0; elevCar.style.setProperty("--load",frac.toFixed(2)); }
+  function carSet(cls){ if(cls!==carSprite){ elevCar.className=cls; carSprite=cls; } elevCar.style.transform="translateY("+carY+"px)"; }
+  function shaftTargetY(k){ return shaftCenters[k]?Math.max(0,shaftCenters[k].y-CAR_H):0; }
+  function dwellFor(k){ const i=shaftCenters[k].i, cap=shaftCap(i); const frac=cap>0?Math.min(1,S.shafts[i].pile/cap):0; return 0.35+frac*1.7; } // fuller shaft → longer haul
   function updateElevator(dt){
     if(!elevCar) return;
-    const active=S.elevator.manager && shaftCenters.length>0 && carBottom>0;
-    if(!active){ carY=0; carDir=1; carLoaded=false; carPassed.clear(); elevCar.classList.remove("running"); setCar(); return; }
-    elevCar.classList.add("running");
-    const speed=Math.min(340, 80 + S.elevator.level*2 + milestone(S.elevator.level)*14); // px/s, grows mildly with the elevator
-    carY+=carDir*speed*dt;
-    if(carY>=carBottom){ carY=carBottom; carDir=-1; carLoaded=true; }
-    else if(carY<=0){ carY=0; if(carDir<0&&carLoaded){ pulseWarehouse(); carLoaded=false; } carDir=1; carPassed.clear(); }
-    if(carDir>0){ for(const sc of shaftCenters){ if(!carPassed.has(sc.i) && carY>=sc.y-CAR_H-3){ carPassed.add(sc.i); pulseShaft(sc.i); } } }
-    setCar();
+    const active=S.elevator.manager && shaftCenters.length>0;
+    if(!active){ carY=0; elevState="descend"; elevIdx=0; carLoad=0; carSet("empty"); return; } // parked when not automated
+    if(elevIdx>=shaftCenters.length && elevState!=="ascend" && elevState!=="empty"){ elevState="ascend"; }
+    const speed=Math.min(360, 90 + S.elevator.level*2 + milestone(S.elevator.level)*16); // px/s
+    if(elevState==="descend"){
+      const ty=shaftTargetY(elevIdx); carY=Math.min(ty,carY+speed*dt); carSet("down");
+      if(carY>=ty-0.5){ carY=ty; elevState="haul"; haulT=dwellFor(elevIdx); pulseShaft(shaftCenters[elevIdx].i); }
+    } else if(elevState==="haul"){
+      carSet(carLoad>0.02?"load":"empty"); haulT-=dt;
+      if(haulT<=0){ carLoad=Math.min(1,carLoad+1/6); elevIdx++; elevState=(carLoad>=0.999||elevIdx>=shaftCenters.length)?"ascend":"descend"; }
+    } else if(elevState==="ascend"){
+      carY=Math.max(0,carY-speed*dt); carSet("up");
+      if(carY<=0.5){ carY=0; elevState="empty"; emptyT=0.5; pulseWarehouse(); }
+    } else { // empty at the warehouse
+      carSet("up"); emptyT-=dt; carLoad=Math.max(0,carLoad-dt/0.5);
+      if(emptyT<=0){ carLoad=0; elevIdx=0; elevState="descend"; }
+    }
   }
   if(elevCar) elevCar.addEventListener("click",()=>{ ensureAudio(); tapElevator(); });
   window.addEventListener("resize",measureMine);

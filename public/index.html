@@ -31,9 +31,9 @@
   <div class="boosts" id="boostBar"></div>
 
   <div class="nav">
-    <button id="navResearch">🔬<span>Research</span><span class="badge" id="badgeResearch">!</span></button>
-    <button id="navPrestige">🌟<span>Prestige</span><span class="badge" id="badgePrestige">!</span></button>
-    <button id="navAch">🏆<span>Awards</span><span class="badge" id="badgeAch">!</span></button>
+    <button id="navResearch" class="navimg nav-research" aria-label="Research"><span class="badge" id="badgeResearch">!</span></button>
+    <button id="navPrestige" class="navimg nav-prestige" aria-label="Prestige"><span class="badge" id="badgePrestige">!</span></button>
+    <button id="navAch" class="navimg nav-awards" aria-label="Awards"><span class="badge" id="badgeAch">!</span></button>
   </div>
 
   <!-- Surface: warehouse (sells) + elevator (hauls) controls, always visible up top -->
@@ -41,15 +41,15 @@
 
   <div class="buymode" id="buyMode">
     <span class="bm-label">Buy</span>
-    <button class="bm on" data-mult="1">×1</button>
-    <button class="bm" data-mult="10">×10</button>
-    <button class="bm" data-mult="100">×100</button>
-    <button class="bm" data-mult="max">Max</button>
+    <button class="bm on" data-mult="1" aria-label="Buy x1"></button>
+    <button class="bm" data-mult="10" aria-label="Buy x10"></button>
+    <button class="bm" data-mult="100" aria-label="Buy x100"></button>
+    <button class="bm" data-mult="max" aria-label="Buy max"></button>
   </div>
 
   <!-- The mine: a vertical elevator shaft on the left, shaft rows on the right -->
   <div id="mine">
-    <div class="shafttrack" id="shaftTrack"><div id="elevCar" title="Tap to haul"><span class="car-ore"></span><span class="car-ico">🛗</span></div></div>
+    <div class="shafttrack" id="shaftTrack"><div class="pulley"></div><div id="elevCar" class="empty" title="Tap to haul"></div></div>
     <div id="stations"></div>
   </div>
   <div class="foot">Progress saves automatically in this browser. The mine keeps working while you're away (up to 8 hours).</div>

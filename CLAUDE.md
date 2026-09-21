@@ -16,6 +16,11 @@ runtime deps** (the only network asset is Google Fonts). Run it by opening
 - `public/index.html` — markup only: header, boost bar, nav, `#surface` (warehouse +
   elevator controls), `#mine` (`.shafttrack` with the `#elevCar` + `#stations`), modals.
   The app is ~880px wide; shafts are compact single-row cards so more fit without scrolling.
+- `public/assets/` — sprite art (transparent PNGs): `ore/1..10.png` (per-shaft ore piles),
+  `miner.png` (3-frame dig strip, order ready→windup→strike), `elevator/{empty,load,up,down,
+  pulley,rail}.png`, `btn/*` (nav / buy-toggle / action button faces), `mgr/*` (8 manager
+  types, art only — no mechanic yet). Sliced from the source sheets by the scripts in the
+  session scratchpad (border flood-fill to transparent + connected-component split).
 - `public/css/styles.css` — all styling. Dark "lamp-lit mine" theme driven by CSS custom
   properties in `:root` (`--gold`, `--ore`, `--panel`, `--copper`, …).
 - `public/js/game.js` — the entire game as one IIFE. All logic lives here.

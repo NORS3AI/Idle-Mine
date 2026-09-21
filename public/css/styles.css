@@ -51,15 +51,45 @@
   .nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
   .nav button{position:relative;background:var(--panel2);border:1px solid var(--line2);color:var(--text);border-radius:12px;padding:10px 6px;font-family:var(--font);font-weight:700;font-size:12.5px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:transform .06s;}
   .nav button:active{transform:scale(.96);}
+  .nav button.navimg{background-color:transparent;border:none;padding:2px;min-height:60px;background-repeat:no-repeat;background-position:center;background-size:contain;}
+  .nav .nav-research{background-image:url("../assets/btn/research.png");}
+  .nav .nav-prestige{background-image:url("../assets/btn/prestige.png");}
+  .nav .nav-awards{background-image:url("../assets/btn/awards.png");}
+  /* action-button sizing per context */
+  .sctl .actions .btn.act{height:56px;padding:0;}
+  .mrow .mact .btn.act{width:60px;height:54px;min-width:0;padding:0;flex:0 0 60px;}
+  @media (max-width:560px){ .mrow .mact .btn.act{flex:1 1 0;width:auto;} }
   .nav .badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--danger);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;}
   .nav .badge.show{display:flex;}
 
-  /* buy multiplier toggle */
-  .buymode{display:flex;align-items:center;gap:6px;margin:0 0 12px;}
+  /* buy multiplier toggle (image buttons) */
+  .buymode{display:flex;align-items:center;gap:8px;margin:0 0 12px;}
   .buymode .bm-label{font-size:12px;font-weight:700;color:var(--muted);margin-right:2px;}
-  .buymode .bm{flex:1;background:var(--panel2);border:1px solid var(--line2);color:var(--muted);border-radius:10px;padding:8px 6px;font-family:var(--font);font-weight:700;font-size:13px;cursor:pointer;transition:transform .06s;}
-  .buymode .bm:active{transform:scale(.95);}
-  .buymode .bm.on{background:linear-gradient(180deg,var(--gold-deep),#a8750f);border-color:var(--gold);color:#1a1206;}
+  .buymode .bm{flex:1;height:48px;background-color:transparent;border:none;cursor:pointer;font-size:0;
+    background-repeat:no-repeat;background-position:center;background-size:contain;
+    filter:grayscale(.75) brightness(.72);opacity:.85;transition:filter .12s,transform .06s,opacity .12s;}
+  .buymode .bm[data-mult="1"]{background-image:url("../assets/btn/buy1.png");}
+  .buymode .bm[data-mult="10"]{background-image:url("../assets/btn/buy10.png");}
+  .buymode .bm[data-mult="100"]{background-image:url("../assets/btn/buy100.png");}
+  .buymode .bm[data-mult="max"]{background-image:url("../assets/btn/buymax.png");}
+  .buymode .bm:active{transform:scale(.94);}
+  .buymode .bm.on{filter:none;opacity:1;transform:scale(1.05);}
+
+  /* image action buttons (dig/sell/haul/upgrade/manager) — cut-out button art + a cost caption */
+  .btn.act{position:relative;background-repeat:no-repeat;background-position:center;background-size:contain;
+    border:none;padding:0;overflow:visible;color:#fff;background-color:transparent;box-shadow:none;}
+  .btn.act .cap{position:absolute;left:0;right:0;bottom:0;height:48%;display:flex;align-items:flex-end;justify-content:center;
+    padding-bottom:3px;color:#fff;font-size:11px;font-weight:800;text-align:center;
+    background:linear-gradient(180deg,rgba(10,7,4,0) 0%,rgba(10,7,4,.78) 45%,rgba(10,7,4,.92) 100%);
+    border-radius:0 0 11px 11px;font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 1px 2px #000;}
+  .btn.act-dig{background-image:url("../assets/btn/dig.png");}
+  .btn.act-sell{background-image:url("../assets/btn/sell.png");}
+  .btn.act-haul{background-image:url("../assets/btn/haul.png");}
+  .btn.act-upgrade{background-image:url("../assets/btn/upgrade.png");}
+  .btn.act-manager{background-image:url("../assets/btn/manager.png");}
+  .btn.act.owned{filter:grayscale(.55) brightness(.82);}
+  .btn.act:disabled{opacity:.5;filter:grayscale(.5);cursor:not-allowed;}
+  .btn.act:not(:disabled):active{transform:scale(.93);}
 
   /* surface: warehouse + elevator controls, side by side up top */
   #surface{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
@@ -79,22 +109,32 @@
   @keyframes dumpFlash{0%{box-shadow:0 0 0 0 rgba(244,181,38,.0);}25%{box-shadow:0 0 18px -2px rgba(244,181,38,.65);border-color:var(--gold);}100%{box-shadow:0 6px 14px -10px rgba(0,0,0,.8);}}
 
   /* the mine: elevator track (left) + shaft rows (right) */
-  #mine{position:relative;padding-left:44px;min-height:60px;}
-  .shafttrack{position:absolute;left:8px;top:6px;bottom:6px;width:28px;border-radius:8px;background:linear-gradient(180deg,#1b140d,#140e08);border:1px solid var(--line2);box-shadow:inset 0 0 10px rgba(0,0,0,.6);overflow:hidden;}
-  .shafttrack::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:repeating-linear-gradient(180deg,#3d2f1f 0 6px,transparent 6px 12px);} /* cable */
-  #elevCar{position:absolute;left:50%;top:0;width:24px;height:26px;margin-left:-12px;border-radius:5px;border:1px solid var(--gold-deep);background:linear-gradient(180deg,#5a4324,#3a2b16);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.6);will-change:transform;}
-  #elevCar .car-ico{font-size:14px;line-height:1;filter:drop-shadow(0 1px 1px #000);}
-  #elevCar .car-ore{position:absolute;inset:2px;border-radius:3px;background:radial-gradient(circle at 50% 40%,var(--ore),var(--ore-deep));opacity:0;transform:scale(var(--load,0));transition:opacity .15s;pointer-events:none;}
-  #elevCar.running .car-ore{opacity:calc(var(--load,0) * .8);}
-  #elevCar:active{transform:translateY(var(--cary,0)) scale(.9);}
+  #mine{position:relative;padding-left:64px;min-height:90px;}
+  .shafttrack{position:absolute;left:6px;top:18px;bottom:6px;width:52px;border-radius:8px;
+    background:url("../assets/elevator/rail.png") top center/52px auto repeat-y, linear-gradient(180deg,#1b140d,#140e08);
+    border:1px solid var(--line2);box-shadow:inset 0 0 12px rgba(0,0,0,.6);overflow:visible;}
+  .shafttrack .pulley{position:absolute;top:-26px;left:50%;transform:translateX(-50%);width:46px;height:46px;background:url("../assets/elevator/pulley.png") center/contain no-repeat;z-index:3;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));}
+  #elevCar{position:absolute;left:50%;top:0;width:48px;height:86px;margin-left:-24px;
+    background:url("../assets/elevator/empty.png") center/contain no-repeat;cursor:pointer;
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));will-change:transform;z-index:2;}
+  #elevCar.down{background-image:url("../assets/elevator/down.png");}
+  #elevCar.up{background-image:url("../assets/elevator/up.png");}
+  #elevCar.load{background-image:url("../assets/elevator/load.png");}
+  #elevCar.empty{background-image:url("../assets/elevator/empty.png");}
+  #elevCar:active{filter:drop-shadow(0 3px 4px rgba(0,0,0,.55)) brightness(1.12);}
 
   .card{position:relative;background:linear-gradient(180deg,var(--panel) 0%,#221a12 100%);border:1px solid var(--line);border-radius:15px;padding:12px 13px;margin-bottom:10px;box-shadow:0 6px 14px -10px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.03);}
 
   /* compact shaft rows (single column, short, so more fit without scrolling) */
   .mrow{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:10px 12px;margin-bottom:9px;}
-  .mrow .micon{width:40px;height:40px;flex:0 0 40px;border-radius:11px;font-size:21px;display:grid;place-items:center;background:radial-gradient(circle at 40% 30%,#40301d,#241a10);border:1px solid var(--line2);transition:transform .1s;}
-  .mrow.pickup .micon{animation:pickup .45s ease-out;}
-  @keyframes pickup{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(87,199,192,0);}30%{transform:scale(1.12);box-shadow:0 0 14px -2px rgba(87,199,192,.7);}100%{transform:scale(1);}}
+  .mrow .micon{width:44px;height:44px;flex:0 0 44px;border-radius:11px;font-size:21px;display:grid;place-items:center;background:radial-gradient(circle at 40% 30%,#40301d,#241a10);border:1px solid var(--line2);}
+  /* unlocked shaft "scene": ore pile on the right, a miner swinging at it on the left */
+  .mrow .micon.scene{width:78px;flex:0 0 78px;height:56px;background:none;border:none;border-radius:0;position:relative;overflow:visible;}
+  .mrow .micon.scene .ore{position:absolute;right:0;bottom:0;width:50px;height:42px;background-position:center bottom;background-size:contain;background-repeat:no-repeat;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));}
+  .mrow .micon.scene .miner{position:absolute;left:-4px;bottom:-2px;width:54px;height:52px;background:url("../assets/miner.png") left center/300% 100% no-repeat;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));animation:dig .72s steps(3) infinite;}
+  @keyframes dig{to{background-position-x:-300%;}}
+  .mrow.pickup .micon.scene .ore{animation:orePulse .45s ease-out;}
+  @keyframes orePulse{0%{transform:scale(1);}35%{transform:scale(1.18);}100%{transform:scale(1);}}
   .mrow .minfo{flex:1 1 220px;min-width:0;}
   .mrow .mtop{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14.5px;}
   .mrow .mtop .lv{font-size:11px;font-weight:700;color:var(--gold);background:#1e160d;border:1px solid var(--line2);border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums;}
