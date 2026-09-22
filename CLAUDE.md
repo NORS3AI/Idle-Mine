@@ -67,8 +67,18 @@ The **elevator has no station card** — its Haul/Upgrade/Manager controls live 
 then rises to dump at the warehouse (pulsing `.dump`). It's purely cosmetic — the real ore
 math is in `autoStep`. `measureMine()` caches shaft row centres (called on build + resize).
 
-Currencies: **cash** (upgrades, managers, research) and **gold bars** (earned by prestige
-— "sell the mine" — and spent in the Legacy Tree).
+Currencies: **cash** (upgrades, managers, research) and **prestige points** (⭐, earned by
+"selling the mine" and spent in the Legacy Tree). Unspent prestige points each give **+1%
+income** passively (`mIncome` includes `1+prestigePoints*0.01`).
+
+**Prestige is a two-step New Game+**: `cashOut()` banks points (`prestigeGain`, boosted by the
+Finance Dept node), increments the count, wipes the run and sets `S.pendingStart=true` — the
+mine stays reset (a `#ngBanner` CTA + the Prestige sheet button both show "New Game+"). You
+then spend points, and `newGamePlus()` applies start-of-run perks (Standing Crew hires
+managers/opens shafts, Veteran Miners raises starting levels, Head Start grants cash) and
+begins the run. The Legacy Tree has 16 nodes; several are "specialist managers" (`img` field →
+`assets/mgr/*` icon) that discount costs (`upDiscount`/`mgrDiscount`/`unlockDiscount`), boost
+ore worth/storage/boost-strength/offline-cap, etc.
 
 ## Conventions / gotchas
 - **Keep it dependency-free and buildless.** Nothing bundled to the browser.

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=8">
+<link rel="stylesheet" href="css/styles.css?v=9">
 </head>
 <body>
 <div class="toast-wrap" id="toasts"></div>
@@ -24,7 +24,7 @@
     <div class="money-row">
       <div class="cash" id="cash"><span class="cur">$</span>0</div>
       <div class="rate">income <b id="rate">0</b>/s</div>
-      <div class="gbchip" id="gbchip">🪙 <span class="gb" id="gbCount">0</span></div>
+      <div class="gbchip" id="gbchip">⭐ <span class="gb" id="gbCount">0</span></div>
     </div>
   </header>
 
@@ -34,6 +34,12 @@
     <button id="navResearch" class="navimg nav-research" aria-label="Research"><span class="badge" id="badgeResearch">!</span></button>
     <button id="navPrestige" class="navimg nav-prestige" aria-label="Prestige"><span class="badge" id="badgePrestige">!</span></button>
     <button id="navAch" class="navimg nav-awards" aria-label="Awards"><span class="badge" id="badgeAch">!</span></button>
+  </div>
+
+  <!-- New Game+ call-to-action, shown after cashing out a prestige -->
+  <div id="ngBanner" class="ngbanner" style="display:none">
+    <span class="ngtext">⛏️ Mine sold — spend ⭐ prestige points in 🌟 Prestige, then start fresh with your perks.</span>
+    <button class="btn primary" id="ngStartBtn">🚀 New Game+</button>
   </div>
 
   <!-- Surface: warehouse (sells) + elevator (hauls) controls, always visible up top -->
@@ -63,7 +69,7 @@
 
 <!-- Prestige sheet -->
 <div class="scrim" id="prestigeScrim"><div class="sheet">
-  <div class="sheet-head"><div><h2>🌟 Legacy Tree</h2><div class="sub" id="prestigeSub">spend gold bars on forever-bonuses</div></div><button class="closeX" data-close="prestigeScrim">✕</button></div>
+  <div class="sheet-head"><div><h2>🌟 Legacy Tree</h2><div class="sub" id="prestigeSub">spend prestige points on forever-bonuses</div></div><button class="closeX" data-close="prestigeScrim">✕</button></div>
   <div class="sheet-body" id="prestigeBody"></div>
 </div></div>
 
@@ -104,6 +110,6 @@
   <div class="mbtns"><button class="btn ghost" id="confirmNo">Cancel</button><button class="btn primary" id="confirmYes">Confirm</button></div>
 </div></div>
 
-<script src="js/game.js?v=8"></script>
+<script src="js/game.js?v=9"></script>
 </body>
 </html>

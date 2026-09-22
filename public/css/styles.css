@@ -203,6 +203,11 @@
   .prow{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:11px;margin-bottom:9px;}
   .prow.max{border-color:var(--gold-deep);}
   .prow .pi{width:40px;height:40px;flex:0 0 40px;border-radius:11px;font-size:20px;display:grid;place-items:center;background:radial-gradient(circle at 40% 30%,#40301d,#241a10);border:1px solid var(--line2);}
+  .prow .pi.pi-img{background-size:cover;background-position:center;background-repeat:no-repeat;}
+  /* New Game+ banner */
+  .ngbanner{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border:1px solid var(--gold-deep);border-radius:13px;background:linear-gradient(180deg,#3a2c15,#281e11);box-shadow:0 0 18px -6px rgba(244,181,38,.55);}
+  .ngbanner .ngtext{font-size:12.5px;font-weight:700;color:var(--gold);flex:1 1 220px;line-height:1.4;}
+  .ngbanner .btn.primary{flex:0 0 auto;padding:11px 18px;flex-direction:row;}
   .prow .pmid{flex:1;min-width:0;}
   .prow .ptop{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14px;}
   .prow .plv{font-size:10.5px;font-weight:700;color:var(--gold);background:#1e160d;border:1px solid var(--line2);border-radius:5px;padding:1px 6px;}
