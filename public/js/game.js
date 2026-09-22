@@ -60,23 +60,36 @@
     {id:'goldrush', name:'Gold Rush',      icon:'💛', mult:5, dur:20, cd:240, kind:'sell'},
   ];
 
-  const ACH=[
-    {id:'first',   icon:'💰', name:'First Sale',      desc:'Earn $100 total',      reward:0.02, check:()=>S.totalEarned>=100},
-    {id:'k10',     icon:'🪙', name:'Getting Started', desc:'Earn $10K total',      reward:0.02, check:()=>S.totalEarned>=1e4},
-    {id:'m1',      icon:'💵', name:'Six Figures+',    desc:'Earn $1M total',       reward:0.03, check:()=>S.totalEarned>=1e6},
-    {id:'b1',      icon:'🏦', name:'Mining Magnate',  desc:'Earn $1B total',       reward:0.05, check:()=>S.totalEarned>=1e9},
-    {id:'t1',      icon:'💎', name:'Deep Pockets',    desc:'Earn $1T total',       reward:0.08, check:()=>S.totalEarned>=1e12},
-    {id:'s3',      icon:'🕳️', name:'Expanding',       desc:'Open 3 shafts',        reward:0.03, check:()=>countUnlocked()>=3},
-    {id:'s6',      icon:'⬇️', name:'Going Deep',      desc:'Open 6 shafts',        reward:0.05, check:()=>countUnlocked()>=6},
-    {id:'sAll',    icon:'🌋', name:'Rock Bottom',     desc:'Open every shaft',     reward:0.12, check:()=>countUnlocked()>=SHAFT_DEFS.length},
-    {id:'auto',    icon:'🤖', name:'Hands Off',       desc:'Automate the 1st chain',reward:0.03, check:()=>S.warehouse.manager&&S.elevator.manager&&S.shafts[0].manager},
-    {id:'lvl50',   icon:'🏋️', name:'Overbuilt',       desc:'Any shaft to Lv.50',   reward:0.05, check:()=>S.shafts.some(x=>x.unlocked&&x.level>=50)},
-    {id:'lvl100',  icon:'💪', name:'Maxed Muscle',    desc:'Any shaft to Lv.100',  reward:0.08, check:()=>S.shafts.some(x=>x.unlocked&&x.level>=100)},
-    {id:'p1',      icon:'🌟', name:'Cashed Out',      desc:'Sell the mine once',   reward:0.05, check:()=>S.prestigeCount>=1},
-    {id:'p5',      icon:'✨', name:'Serial Seller',   desc:'Sell the mine 5 times',reward:0.08, check:()=>S.prestigeCount>=5},
-    {id:'tap1k',   icon:'👆', name:'Blister Fingers', desc:'Tap 1,000 times',      reward:0.03, check:()=>S.totalTaps>=1000},
-    {id:'boost10', icon:'📣', name:'Rally Cry',       desc:'Use 10 boosts',        reward:0.03, check:()=>S.boostsUsed>=10},
-  ];
+  // Awards RESET every prestige, so every check is a PER-RUN metric (this run's cash, shaft
+  // levels, miners, income) — re-earned each run for their income bonus. ~65 total.
+  const ACH=(function(){
+    const list=[], A=(id,icon,name,desc,reward,check)=>list.push({id,icon,name,desc,reward,check});
+    const SUF2=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","Dc"];
+    const bn=v=>{ if(v<1000) return ''+v; const t=Math.floor(Math.log10(v)/3); const m=v/Math.pow(1000,t); return (m>=100?Math.round(m):(m>=10?Math.round(m):+m.toFixed(1)))+(SUF2[t]||('e'+t*3)); };
+    // cash earned THIS run
+    const cashV=[100,1e3,1e4,1e5,1e6,1e7,1e8,1e9,1e10,1e11,1e12,1e13,1e14,1e15,1e17,1e20,1e24,1e28];
+    const cashN=['First Sale','Pocket Change','Getting Started','Six Figures','Millionaire','Big Money','Hundred-Mil','Billionaire','Ten-Billion','Hundred-Bil','Trillionaire','Ten-Tril','Hundred-Tril','Quadrillionaire','Sky High','Cosmic Wealth','Beyond Measure','Infinite Riches'];
+    const cashI=['💰','🪙','💵','💴','💶','💷','🏦','💎','👑','🏰','🌋','⭐','🌟','☄️','🚀','🌌','🕳️','♾️'];
+    cashV.forEach((v,i)=>A('cash'+i,cashI[i],cashN[i],'Earn $'+bn(v)+' in one run',Math.min(0.08,0.01+i*0.004),()=>S.totalRun>=v));
+    // shafts opened this run
+    for(let n=2;n<=10;n++) A('open'+n,'🕳️','Expanding ×'+n,'Open '+n+' shafts',0.02,()=>countUnlocked()>=n);
+    // any shaft to level
+    [10,25,50,75,100,150,200,300,500,750,1000,2000,5000].forEach(L=>A('lvl'+L,'🏋️','Deep Dig '+L,'A shaft to Lv.'+L,Math.min(0.08,0.02+L/2500*0.02),()=>S.shafts.some(x=>x.unlocked&&x.level>=L)));
+    // total miners hired (sum of milestones)
+    [3,6,12,24,48,96,192].forEach((m,i)=>A('crew'+m,'⛏️','Crew of '+m,'Hire '+m+' miners total',0.02+i*0.006,()=>{let t=0;S.shafts.forEach((s)=>{if(s.unlocked)t+=milestoneCount(s.level);});return t>=m;}));
+    // warehouse / elevator levels
+    [25,50,100,200].forEach(L=>A('wh'+L,'🏭','Warehouse '+L,'Warehouse to Lv.'+L,0.02,()=>S.warehouse.level>=L));
+    [25,50,100,200].forEach(L=>A('el'+L,'🛗','Elevator '+L,'Elevator to Lv.'+L,0.02,()=>S.elevator.level>=L));
+    // whole-mine goals
+    A('allmgr','🤖','Fully Staffed','Manage all 10 shafts',0.05,()=>S.shafts.every(x=>x.unlocked&&x.manager));
+    A('all50','💪','Even Delve','Every shaft to Lv.50',0.08,()=>S.shafts.every(x=>x.unlocked&&x.level>=50));
+    A('all200','🦾','Overbuilt','Every shaft to Lv.200',0.12,()=>S.shafts.every(x=>x.unlocked&&x.level>=200));
+    // income per second
+    [1e3,1e6,1e9,1e12,1e15,1e18].forEach((r,i)=>A('inc'+i,'📈','Cash Flow '+bn(r),'Reach $'+bn(r)+'/s income',0.03+i*0.008,()=>bottleneck()>=r));
+    // automate the first chain
+    A('auto','⚙️','Hands Off','Automate the first chain',0.03,()=>S.warehouse.manager&&S.elevator.manager&&S.shafts[0]&&S.shafts[0].manager);
+    return list;
+  })();
 
   // ---------------- state ----------------
   let S;
@@ -230,9 +243,10 @@
   // Step 1 — cash the run out for prestige points, wipe the mine, and wait for New Game+.
   function cashOut(){
     const g=prestigeGain(); if(g<1) return;
+    // research & achievements are NOT kept — they reset with the run (prestige tree is permanent)
     const keep={prestigePoints:(S.prestigePoints||0)+g,totalEarned:S.totalEarned,sound:S.sound,prestigeCount:S.prestigeCount+1,
-      totalTaps:S.totalTaps,boostsUsed:S.boostsUsed,devInfiniteBoosts:S.devInfiniteBoosts,research:S.research,
-      prestigeTree:S.prestigeTree,achievements:S.achievements,boosts:S.boosts};
+      totalTaps:S.totalTaps,boostsUsed:S.boostsUsed,devInfiniteBoosts:S.devInfiniteBoosts,
+      prestigeTree:S.prestigeTree,boosts:S.boosts};
     S=Object.assign(freshState(),keep);
     S.pendingStart=true;   // the mine won't run again until New Game+ is pressed
     chime(); build(); render(); save();
@@ -281,8 +295,8 @@
   function toast(icon,txt){ const w=document.getElementById("toasts"); const el=document.createElement("div"); el.className="toast"; el.innerHTML="<span>"+icon+"</span><span>"+txt+"</span>"; w.appendChild(el); setTimeout(()=>{ el.style.transition="opacity .4s"; el.style.opacity="0"; setTimeout(()=>el.remove(),400); },3200); }
 
   function checkAchievements(){
-    let any=false;
-    ACH.forEach(a=>{ if(S.achievements.indexOf(a.id)<0 && a.check()){ S.achievements.push(a.id); toast(a.icon,"Award: "+a.name+"  (+"+Math.round(a.reward*100)+"% income)"); chime(); any=true; } });
+    let any=false, shown=0; // cap toasts per frame (New Game+ can satisfy many at once)
+    ACH.forEach(a=>{ if(S.achievements.indexOf(a.id)<0 && a.check()){ S.achievements.push(a.id); if(shown<3){ toast(a.icon,"Award: "+a.name+"  (+"+Math.round(a.reward*100)+"% income)"); shown++; } chime(); any=true; } });
     return any;
   }
 

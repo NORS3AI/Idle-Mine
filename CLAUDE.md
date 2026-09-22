@@ -30,7 +30,9 @@ runtime deps** (the only network asset is Google Fonts). Run it by opening
    milestone level thresholds), `OFFLINE_CAP`, `PRESTIGE_UNLOCK`.
 2. **data tables** — `SHAFT_DEFS` (10 shafts, each with `unlockCost`/`base`/`worth`/`depth`),
    `RESEARCH` (6 nodes), `PRESTIGE`
-   (legacy tree), `BOOSTS`, `ACH` (15 achievements). **Balance the game by editing these.**
+   (16-node legacy tree), `BOOSTS`, `ACH` (~65 awards, generated). **Balance the game by editing these.**
+   `RESEARCH` and `ACH` (awards) **reset every prestige** — awards are re-earned per run, so all
+   their `check`s use per-run metrics (`totalRun`, shaft levels, live income), never lifetime totals.
 3. **state** — `freshState()` returns the whole save object; `S` is the live state.
 4. **multipliers** — `mShaft / mTransport / mSell / mCap / mTap / mIncome`, `orePayout()`.
    Every rate, cost, and payout flows through these. Add new global bonuses here.
